@@ -13,7 +13,7 @@
 //        Company:  
 // 
 // =====================================================================================
-#include "Smoother.h"
+#include "Hzzws/Smoother.h"
 #include <RooDataSet.h>
 #include <RooNDKeysPdf.h>
 #include <TString.h>
