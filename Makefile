@@ -25,4 +25,5 @@ all: ./lib/libHzzws.so
 
 clean:
 	rm -f ./obj/*.o
+	rm -f ./lib/*
 	rm -f ./bin/*
