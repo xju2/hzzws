@@ -24,19 +24,20 @@
 #include <RooArgSet.h>
 
 #include <vector>
-
+using namespace std;
 class Combiner{
     private:
         TString name;
-        std::vector<Category*>* categories;
-        TFile* data_file;
-        RooArgSet& obs;
-        SystematicsManager* sysMan;
+        //std::vector<Category*>* categories;
+        //TFile* data_file;
+        //RooArgSet& obs;
+        //SystematicsManager* sysMan;
+
+        // read the overall configurations
+        void readConfig(const char* _name);
     
     public:
-        Combiner(const char* _name);
+        Combiner(const char* _name, const char* _configName);
         virtual ~Combiner();
-        // read the overall configurations
-        bool readConfig(const char* _name);
 };
 #endif

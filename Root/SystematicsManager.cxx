@@ -47,30 +47,11 @@ void SystematicsManager::readNPs(const char* fileName){
 }
 
 void SystematicsManager::add_sys(Sample* sample){
-    Sample::ShapeDic shapes_sys_dic = sample->getShapeSys();
-    Sample::NormDic  norm_sys_dic = sample->getNormSys();
 
     for(auto np : *all_nps){
         std::cout<<"Name of NP: "<< np <<std::endl;
-        try{
-            std::vector<TH1*>& shape_varies = shapes_sys_dic.at(np);
-            this ->add_shape_sys(sample, shape_varies); 
-        }catch(const std::out_of_range& oor){
-            // do nothing
-        }
-        try{
-            std::vector<float>& norm_varies = norm_sys_dic.at(np);
-            this ->add_norm_sys(sample, norm_varies);
-        }catch(const std::out_of_range& oor){
-            // do nothing
-        }
+        sample -> addShapeSys( np );
+        sample -> addNormSys(  np );
     }
 }
 
-void SystematicsManager::add_shape_sys(Sample* sample, std::vector<TH1*>& shape_varies){
-    // todo: add shape systematics for the Sample
-}
-
-void SystematicsManager::add_norm_sys(Sample* sample, vector<float>& norm_varies){
-    // todo: add normalization systematic for sample
-}

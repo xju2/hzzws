@@ -14,4 +14,32 @@
 // 
 // =====================================================================================
 #include "Hzzws/Combiner.h"
+#include <fstream>
+#include <string>
+#include <sstream>
 
+Combiner::Combiner(const char* _name, const char* _configName):
+    name(_name)
+{
+  readConfig(_configName);
+}
+
+Combiner::~Combiner(){
+
+}
+
+void Combiner::readConfig(const char* configName){
+    ifstream file(configName, ifstream::in);
+    string line;
+    while ( getline(file, line) ){ 
+        istringstream iss(line);
+        string tagName;
+        if( getline( iss, tagName, '=') ){
+            cout<< tagName <<endl;
+            if( tagName == "data" ){
+                string token;
+                getline( iss, token,'=');
+            }
+        }
+    }
+}

@@ -25,8 +25,6 @@
 class SystematicsManager{
     private:
         std::vector<TString>* all_nps;
-        void add_shape_sys(Sample*, std::vector<TH1*>& shape_varies);
-        void add_norm_sys(Sample*, std::vector<float>& norm_varies);
 
     public:
         SystematicsManager();

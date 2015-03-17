@@ -23,8 +23,7 @@ Category::~Category()
 
 void Category::addSample(Sample* sample, bool is_signal){
     //tell sample, work on this category!
-    sample ->setChannel(this ->m_label.c_str());
-    sample ->setObs(obs);
+    sample ->setChannel(this->obs, this ->m_label.c_str());
     if(is_signal){
         signal_samples ->push_back(sample);
     }else{
