@@ -28,16 +28,19 @@ using namespace std;
 class Combiner{
     private:
         TString name;
-        //std::vector<Category*>* categories;
+        vector<Category*> allCategories;
         //TFile* data_file;
         //RooArgSet& obs;
-        //SystematicsManager* sysMan;
+        SystematicsManager* sysMan;
+        vector<Sample*> allSamples;
 
+        void printDic(map<string, map<string, string> >& all_dic);
         // read the overall configurations
         void readConfig(const char* _name);
     
     public:
         Combiner(const char* _name, const char* _configName);
         virtual ~Combiner();
+
 };
 #endif

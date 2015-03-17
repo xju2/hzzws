@@ -48,7 +48,8 @@ void SystematicsManager::readNPs(const char* fileName){
 
 void SystematicsManager::add_sys(Sample* sample){
 
-    for(auto np : *all_nps){
+    for(unsigned int i=0; i < all_nps->size(); i++){
+        TString& np = all_nps->at(i);
         std::cout<<"Name of NP: "<< np <<std::endl;
         sample -> addShapeSys( np );
         sample -> addNormSys(  np );

@@ -15,6 +15,7 @@
 // =====================================================================================
 #include "Hzzws/Sample.h"
 #include <iostream>
+#include <stdexcept>
 
 #include <RooDataHist.h>
 #include <TKey.h>
@@ -30,11 +31,11 @@ Sample::Sample(const char* _name,
     name(_name)
 {
     hist_files = TFile::Open(_input_path, "read");
-    if(!hist_files) std::cerr<<"Input file doesnot exist: "<< _input_path << std::endl;
+    if(!hist_files) cerr<<"Input file doesnot exist: "<< _input_path << endl;
     shape_files = TFile::Open(_shape_sys_path, "read");
-    if(!shape_files) std::cerr <<" No shape systematic for Sample: "<< _name <<
-        " at: "<< _shape_sys_path<< std::endl;
-    norm_sys_file.open(_norm_sys_path, std::ifstream::in);
+    if(!shape_files) cerr <<" No shape systematic for Sample: "<< _name <<
+        " at: "<< _shape_sys_path<< endl;
+    norm_sys_file.open(_norm_sys_path, ifstream::in);
 
     np_constraint = NULL;
     norm_hist = NULL;
@@ -180,7 +181,7 @@ void Sample::addShapeSys(TString& npName){
     if(shape_varies.size() == 1){
         // add symmetric error
         TH1* h1 = shape_varies.at(0);
-        for(unsigned int i = 0; i < norm_hist->GetNbinsX(); i++){
+        for(int i = 0; i < norm_hist->GetNbinsX(); i++){
             histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1+h1->GetBinContent(i+1)));
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1-h1->GetBinContent(i+1)));
         }
@@ -188,7 +189,7 @@ void Sample::addShapeSys(TString& npName){
         // add asymmetric error
         TH1* h1 = shape_varies.at(0);
         TH1* h2 = shape_varies.at(1);
-        for(unsigned int i = 0; i < norm_hist->GetNbinsX(); i++){
+        for(int i = 0; i < norm_hist->GetNbinsX(); i++){
             histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h1->GetBinContent(i+1));
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
         }
