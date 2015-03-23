@@ -1,18 +1,6 @@
-// =====================================================================================
-// 
-//       Filename:  Combiner.cxx
 // 
 //    Description:  Combine each categories
 // 
-//        Version:  1.0
-//        Created:  03/16/2015 21:13:34
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #include "Hzzws/Combiner.h"
 #include <fstream>
 #include <string>
@@ -61,6 +49,23 @@ void Combiner::readConfig(const char* configName){
     }
     all_dic[section_name] = section_dic;  //pick up the last section
     printDic(all_dic);
+
+    //load the data
+    string input_data = all_dic["data"]["file_path"];
+    data_file = TFile::Open(input_data.c_str(), "READ");
+
+    //load samples
+    for(auto& sample : all_dic.at("samples")){
+        string parameters = sample.second;
+        istringstream iss(parameters);
+        string input_path, shape_sys_path, norm_sys_path, name;
+        getline( iss, input_path, ',');
+        getline( iss, shape_sys_path, ',');
+        getline( iss, norm_sys_path, ',');
+        getline( iss, name, ',');
+        cout<<input_path<< shape_sys_path<< norm_sys_path<<name<<endl;
+    }
+      
 }
 
 void Combiner::printDic(map<string, map<string, string> >& all_dic){
@@ -71,3 +76,4 @@ void Combiner::printDic(map<string, map<string, string> >& all_dic){
         }
     }
 }
+
