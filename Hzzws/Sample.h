@@ -27,8 +27,8 @@ class Sample{
         typedef std::map<TString, std::vector<TH1*> > ShapeDic;
         typedef std::map<TString, std::vector<float> > NormDic;
 
-        Sample(const char* name, const char* input_path, 
-                const char* shape_sys_path, const char* norm_sys_path);
+        explicit Sample(const char* name, const char* input, 
+                const char* shape_sys, const char* norm_sys, const char* _path);
         virtual ~Sample();
         inline string getName(){ return this->name;}
 

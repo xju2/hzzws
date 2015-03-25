@@ -15,17 +15,15 @@
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
 
 Sample::Sample(const char* _name, 
-        const char* _input_path,  
-        const char* _shape_sys_path, 
-        const char* _norm_sys_path):
+        const char* _input,  
+        const char* _shape_sys, 
+        const char* _norm_sys,
+        const char* _path):
     name(_name)
 {
-    hist_files = TFile::Open(_input_path, "read");
-    if(!hist_files) cerr<<"Input file doesnot exist: "<< _input_path << endl;
-    shape_files = TFile::Open(_shape_sys_path, "read");
-    if(!shape_files) cerr <<" No shape systematic for Sample: "<< _name <<
-        " at: "<< _shape_sys_path<< endl;
-    norm_sys_file.open(_norm_sys_path, ifstream::in);
+    hist_files = TFile::Open(Form("%s/%s", _path, _input), "read");
+    shape_files = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
+    norm_sys_file.open(Form("%s/%s", _path, _norm_sys), ifstream::in);
 
     np_constraint = NULL;
     norm_hist = NULL;
@@ -74,21 +72,25 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name){
     obsList.Clear();
 
     // set observables
-    obsList = RooArgList(_obs);
-    if(obsList.getSize() == 1) obsname = std::string(obsList.at(0)->GetName());
-    else if(obsList.getSize() == 2) obsname = std::string(Form("%s_%s", obsList.at(0)->GetName(), obsList.at(1)->GetName()));
-    else {
-        std::cerr <<"3D is not supported.. "<<std::endl;
+    TIter next(_obs.createIterator());
+    RooRealVar* var;
+    while ( (var = (RooRealVar*) next()) ){
+        obsList.add(*var);
     }
-    std::cout<<" observables name: "<< obsname << std::endl;
+    if(obsList.getSize() == 1) obsname = string(obsList.at(0)->GetName());
+    else if(obsList.getSize() == 2) obsname = string(Form("%s_%s", obsList.at(0)->GetName(), obsList.at(1)->GetName()));
+    else {
+        cerr << "3D is not supported.. " << endl;
+    }
+    cout<<" observables name: "<< obsname << endl;
 
     // set category name
     category_name = std::string(_ch_name);
     std::cout<<" Sample: "<< name<< " set to category: " << category_name<<std::endl;
 
     baseName = TString(Form("%s_%s", name.c_str(), category_name.c_str()));
-    // get norminal histogram
 
+    // get norminal histogram
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files->Get(histName.Data());
     if(!norm_hist){
@@ -115,6 +117,9 @@ void Sample::getShapeSys(){
     shapes_dic.clear();
     paramNames.clear();
     sysPdfs.clear();
+    if(!shape_files) return;
+        
+
 
     TIter next(shape_files->GetListOfKeys());
     TKey* key;
@@ -151,7 +156,9 @@ void Sample::getShapeSys(){
 
 void Sample::getNormSys(){
     norms_dic.clear();
+    if(!norm_sys_file.good()) return;
     // re-fill norm dic
+    // TODO
     std::vector<float>  norm_sys;
     norm_sys.push_back(0.0);
     TString np("none");

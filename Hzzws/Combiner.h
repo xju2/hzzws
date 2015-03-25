@@ -19,7 +19,7 @@ class Combiner{
         TString name;
         map<string, map<string, string> > all_dic;
 
-        TFile* data_file;
+        //TFile* data_file; //TODO
         map<string, Sample*> allSamples;
         SystematicsManager* sysMan;
         RooArgSet obs;

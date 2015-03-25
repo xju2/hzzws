@@ -22,9 +22,10 @@ class Category {
 
   std::string m_label;
   bool is_2D ;
+  RooArgSet obs ;
+
   std::vector<Sample*>* signal_samples;
   std::vector<Sample*>* bkg_samples;
-  RooArgSet obs ;
 };
 
 #endif 

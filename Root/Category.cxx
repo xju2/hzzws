@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <algorithm>
 
+#include <RooRealVar.h>
 using namespace std;
 
 //________________________________________________________________________
@@ -28,5 +29,15 @@ void Category::addSample(Sample* sample, bool is_signal){
         signal_samples ->push_back(sample);
     }else{
         bkg_samples ->push_back(sample);
+    }
+}
+
+void Category::setObservables(RooArgSet& _obs)
+{
+    TIterator* iter = _obs.createIterator();
+    TIter next(iter);
+    RooRealVar* var;
+    while ( (var = (RooRealVar*) next()) ){
+        obs.add(*var);
     }
 }
