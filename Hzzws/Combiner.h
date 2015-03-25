@@ -17,18 +17,24 @@ using namespace std;
 class Combiner{
     private:
         TString name;
-        vector<Category*> allCategories;
-        TFile* data_file;
-        //RooArgSet& obs;
-        //SystematicsManager* sysMan;
-        map<TString, Sample*> allSamples;
+        map<string, map<string, string> > all_dic;
 
-        void printDic(map<string, map<string, string> >& all_dic);
+        TFile* data_file;
+        map<string, Sample*> allSamples;
+        SystematicsManager* sysMan;
+        RooArgSet obs;
+        vector<Category*> allCategories;
+
+        string findCategoryConfig(string& cat_name, const char* name);
+        Sample* getSample(string& name);
+        vector<string>* tokenizeString(string& str, char delim);
+        void printDic();
+
         // read the overall configurations
         void readConfig(const char* _name);
     
     public:
-        Combiner(const char* _name, const char* _configName);
+        explicit Combiner(const char* _name, const char* _configName);
         virtual ~Combiner();
 
 };

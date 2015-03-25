@@ -1,18 +1,6 @@
-// =====================================================================================
-// 
-//       Filename:  SystematicsManager.h
 // 
 //    Description:  Have all the systematics and know how to add systematics
 // 
-//        Version:  1.0
-//        Created:  03/13/2015 17:17:43
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #ifndef __HZZWS_SYSTEMATICSMANAGER_H__
 #define __HZZWS_SYSTEMATICSMANAGER_H__
 

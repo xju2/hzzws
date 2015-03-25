@@ -8,6 +8,9 @@
 #include <iostream>
 #include <map>
 #include <stdexcept>
+#include <boost/algorithm/string.hpp>
+
+#include <RooRealVar.h>
 
 Combiner::Combiner(const char* _name, const char* _configName):
     name(_name)
@@ -17,13 +20,14 @@ Combiner::Combiner(const char* _name, const char* _configName):
 }
 
 Combiner::~Combiner(){
-
+    for(auto* cat : allCategories){
+        delete cat;
+    }
 }
 
 void Combiner::readConfig(const char* configName){
     ifstream file(configName, ifstream::in);
     string line;
-    map<string, map<string, string> > all_dic;
     int lineCount = 0;
     map<string, string> section_dic;
     string section_name;
@@ -37,38 +41,93 @@ void Combiner::readConfig(const char* configName){
                 section_name = string(line.begin()+1, line.end()-1);
             }
         }else{
-            istringstream iss(line);
-            string tagName;
-            if( getline( iss, tagName, '=') ){
-                string token;
-                getline( iss, token,'=');
-                section_dic[tagName] = token;
-            }
+            char delim = '=';
+            auto* tokens = tokenizeString(line, delim);
+            section_dic[tokens->at(0)] = tokens->at(1);
+            delete tokens;
         }
         lineCount ++ ;
     }
     all_dic[section_name] = section_dic;  //pick up the last section
-    printDic(all_dic);
+    printDic();
 
+    ///////////////////////////////////
     //load the data
+    ///////////////////////////////////
     string input_data = all_dic["data"]["file_path"];
     data_file = TFile::Open(input_data.c_str(), "READ");
 
+    ///////////////////////////////////
     //load samples
+    ///////////////////////////////////
     for(auto& sample : all_dic.at("samples")){
-        string parameters = sample.second;
-        istringstream iss(parameters);
-        string input_path, shape_sys_path, norm_sys_path, name;
-        getline( iss, input_path, ',');
-        getline( iss, shape_sys_path, ',');
-        getline( iss, norm_sys_path, ',');
-        getline( iss, name, ',');
-        cout<<input_path<< shape_sys_path<< norm_sys_path<<name<<endl;
+        char delim = ',';
+        auto* tokens = tokenizeString(sample.second, delim);
+        // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name;
+        allSamples[sample.first] = new Sample(tokens->at(3).c_str(), tokens->at(0).c_str(),
+                tokens->at(1).c_str(), tokens->at(2).c_str());
+        delete tokens;
     }
-      
+
+    ///////////////////////////////////
+    //load systematics
+    ///////////////////////////////////
+    auto& job_dic = all_dic.at("jobs");
+    try{
+        string NP_list = job_dic.at("NPlist") ;
+        sysMan = new SystematicsManager(NP_list.c_str());
+    }catch(out_of_range& oor){
+        sysMan = new SystematicsManager();
+        cerr << "NPlist is not defined" << endl;
+    }
+    ///////////////////////////////////
+    //add observable  (not for 2D yet)
+    ///////////////////////////////////
+    string obs_str = all_dic.at("jobs")["observable"];
+    
+    char delim = ',';
+    auto* obsPara = tokenizeString(obs_str, delim);
+    // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
+    RooRealVar* var = new RooRealVar(obsPara->at(0).c_str(), obsPara->at(0).c_str(),
+            atoi(obsPara->at(2).c_str()), atoi(obsPara->at(3).c_str())); 
+    var ->setBins(atoi(obsPara->at(1).c_str()));
+    obs.add(*var);
+    delete obsPara;
+
+    ///////////////////////////////////
+    //add categories
+    ///////////////////////////////////
+    istringstream iss_cat( all_dic.at("jobs")["categories"]);
+    string category_name;
+    while( getline( iss_cat, category_name, delim )){
+        cout <<"On category: "<< category_name <<endl;
+
+        string signals = findCategoryConfig(category_name, "signal");
+        if(signals == "") continue;
+
+        string backgrounds = findCategoryConfig(category_name, "background");
+        if(backgrounds == "") continue;
+
+        auto* signal_names = tokenizeString( signals, ',' ) ;
+        auto* bkg_names = tokenizeString( backgrounds, ',' );
+        Category* category = new Category(category_name);
+        bool is_signal_sample = true;
+        for(auto& signal_name : *signal_names){
+            Sample* sample = getSample(signal_name);
+            if(sample) category->addSample(sample, is_signal_sample);
+        }
+        is_signal_sample = false;
+        for(auto& bkg_name : *bkg_names){
+            Sample* sample = getSample(bkg_name);
+            if(sample) category->addSample(sample, is_signal_sample);
+        }
+        allCategories.push_back(category);
+    }
+
 }
 
-void Combiner::printDic(map<string, map<string, string> >& all_dic){
+void Combiner::printDic()
+{
     for(auto& kv : all_dic){
         cout << "section: " << kv.first << endl;
         for(auto& sec : kv.second){
@@ -77,3 +136,43 @@ void Combiner::printDic(map<string, map<string, string> >& all_dic){
     }
 }
 
+
+vector<string>* Combiner::tokenizeString(string& str, char delim)
+{
+    istringstream iss(str);
+    vector<string>* tokens = new vector<string>();
+    string token;
+    while ( getline(iss, token, delim) ){
+        boost::algorithm::trim(token);
+        tokens ->push_back(token);
+    }
+    return tokens;
+}
+
+Sample* Combiner::getSample(string& name)
+{
+    Sample* sample = NULL;
+    try{
+        sample = allSamples.at(name);
+    }catch(out_of_range& oor){
+        cerr << "ERROR: Sample " << name << " not defined! " << endl;
+    }
+    return sample;
+}
+
+string Combiner::findCategoryConfig(string& cat_name, const char* name)
+{
+    string token;
+    try{
+        token = all_dic.at(cat_name).at(name);
+    }catch(out_of_range& orr){ 
+        //signal is not defined in category
+        try{
+            token = all_dic.at("jobs").at(name);
+        }catch(out_of_range& orr){
+            cerr << "ERROR: no " << name << " found in " << cat_name << endl;
+            return "";
+        }
+    }
+    return token;
+}

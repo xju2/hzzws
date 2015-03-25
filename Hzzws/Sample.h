@@ -1,19 +1,9 @@
-// =====================================================================================
-// 
-//       Filename:  Sample.h
 // 
 //    Description:  @name, name of the sample
 //                  @hist_files,  root file contains smoothed histograms
 //                  @shape_files, root file contains shape variations
 //                  @norm_sys_file,  text file contains normalize sys
 // 
-//        Version:  1.0
-//        Created:  03/13/2015 11:20:07
-//       Revision:  none
-//       Compiler:  g++
-// 
-// 
-// =====================================================================================
 #ifndef __HZZWS_SAMPLE_H__
 #define __HZZWS_SAMPLE_H__
 #include <string>
