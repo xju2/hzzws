@@ -15,15 +15,19 @@
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
 
 Sample::Sample(const char* _name, 
+        const char* _nickname,
         const char* _input,  
         const char* _shape_sys, 
         const char* _norm_sys,
         const char* _path):
-    name(_name)
+    name(_name),
+    nickname(_nickname)
 {
     hist_files = TFile::Open(Form("%s/%s", _path, _input), "read");
     shape_files = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
     norm_sys_file.open(Form("%s/%s", _path, _norm_sys), ifstream::in);
+    if(name.find("Signal") != string::npos) is_signal = true;
+    else is_signal = false;
 
     np_constraint = NULL;
     norm_hist = NULL;
@@ -162,7 +166,8 @@ void Sample::getShapeSys(){
 }
 
 void Sample::getNormSys(){
-    norms_dic.clear();
+    //TODO specific normalization systematics for each category!!!
+    if (norms_dic.size() > 0) return;
     if(!norm_sys_file.good()) return;
     TString name;
     float low_value, high_value;
@@ -241,26 +246,28 @@ RooAbsPdf* Sample::getPDF(){
 RooAbsReal* Sample::getCoeff(){
    TString varName(Form("n%s", baseName.Data()));
    RooRealVar* norm = new RooRealVar(varName.Data(), varName.Data(), this->getExpectedValue());
-   if(lowValues.size() < 1){
-        return  norm;
-   }else{
+   RooArgList prodSet;
+   prodSet.add(*norm);
+   if(is_signal) this->addMu(prodSet);
+   
+   if(lowValues.size() > 0){
        TString fixName(Form("fiv_%s", baseName.Data()));
        // add FlexibleInterpVar
-       for(int i = 0; i < np_vars.getSize(); i++){
-           RooRealVar* np = (RooRealVar*) np_vars.at(i);
-           cout << "np: " << np->GetName() << " " << np->getVal() << endl;
-       }
-       for(auto& low : lowValues){
-           cout << "low value: " << low << endl;
-       }
-       for(auto& high : highValues){
-           cout << "high value: " << high << endl;
-       }
        auto* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
        // 4: piece-wise log outside boundaries, polynomial interpolation inside
        fiv->setAllInterpCodes(4); 
-       TString prodName(Form("nTot%s", baseName.Data()));
-       RooProduct* normProd = new RooProduct(prodName.Data(), prodName.Data(), RooArgList(*norm, *fiv));
-       return normProd;
+       prodSet.add(*fiv);
    }
+   TString prodName(Form("nTot%s", baseName.Data()));
+   RooProduct* normProd = new RooProduct(prodName.Data(), prodName.Data(), prodSet);
+   return normProd;
+}
+
+void Sample::addMu(RooArgList& prodSet)
+{
+    RooRealVar* mu = new RooRealVar("mu", "mu", 1.0, -30., 30);
+    string mu_name(Form("mu_%s", nickname.c_str()));
+    RooRealVar* mu_sample = new RooRealVar(mu_name.c_str(), mu_name.c_str(), 1.0, -30, 30);
+    prodSet.add(*mu);
+    prodSet.add(*mu_sample);
 }

@@ -13,7 +13,7 @@ using namespace std;
 
 class SystematicsManager{
     private:
-        std::vector<TString>* all_nps;
+        vector<TString>* all_nps;
 
     public:
         SystematicsManager();
@@ -22,5 +22,6 @@ class SystematicsManager{
         void readNPs(const char* fileName);
         vector<TString>* add_sys(Sample*);
         inline int totalNP(){return all_nps->size();}
+        inline vector<TString>* getNP() { return all_nps; }
 };
 #endif

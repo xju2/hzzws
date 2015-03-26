@@ -26,8 +26,9 @@ class Category {
   //Add sample to this category, tell sample to work in this category
   //Add systematics in SystematicsManager
   /////////////////////////////////////
-  void addSample(Sample* sample, bool is_signal, SystematicsManager* sysMan);
+  void addSample(Sample* sample, SystematicsManager* sysMan);
   void setObservables(RooArgSet& _obs);
+
   RooAbsPdf* getPDF();
  private:
 
@@ -38,7 +39,9 @@ class Category {
 
   RooArgList pdfList;
   RooArgList coefList;
-  //RooArgList constraintList; // TODO
+  RooArgList constraintList; 
+
+  void gaussianConstraint();
 };
 
 #endif 

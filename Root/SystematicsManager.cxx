@@ -53,7 +53,6 @@ vector<TString>* SystematicsManager::add_sys(Sample* sample){
     auto* nps_vec = new vector<TString>();
     for(unsigned int i=0; i < all_nps->size(); i++){
         TString& np = all_nps->at(i);
-        std::cout<<"Name of NP: "<< np <<std::endl;
         bool has_shape = sample -> addShapeSys( np );
         bool has_norm = sample -> addNormSys(  np );
         if(has_shape || has_norm){
