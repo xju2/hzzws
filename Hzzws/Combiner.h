@@ -10,13 +10,14 @@
 #include <TString.h>
 #include <TFile.h>
 #include <RooArgSet.h>
+#include <RooSimultaneous.h>
 
 #include <vector>
 #include <map>
 using namespace std;
 class Combiner{
     private:
-        TString name;
+        TString m_name;
         map<string, map<string, string> > all_dic;
 
         //TFile* data_file; //TODO
@@ -39,6 +40,7 @@ class Combiner{
     
     public:
         explicit Combiner(const char* _name, const char* _configName);
+        void combine();
         virtual ~Combiner();
 
 };

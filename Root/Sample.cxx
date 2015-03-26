@@ -170,12 +170,12 @@ void Sample::getNormSys(){
     }
 }
 
-void Sample::addShapeSys(TString& npName){
+bool Sample::addShapeSys(TString& npName){
     vector<TH1*> shape_varies ;
     try{
         shape_varies = this->shapes_dic.at(npName);
     }catch(const out_of_range& oor){
-        return ;
+        return false;
     }
 
     TH1* histUp   = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_up",  norm_hist->GetName())));
@@ -202,20 +202,22 @@ void Sample::addShapeSys(TString& npName){
     RooHistPdf* histUpPDF   = this->makeHistPdf(histUp);
     RooHistPdf* histDownPDF = this->makeHistPdf(histDown);
     sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
+    return true;
 }
 
-void Sample::addNormSys(TString& npName){
+bool Sample::addNormSys(TString& npName){
     vector<float> norm_varies;
     try{
         norm_varies = this->norms_dic.at(npName);
     }catch(const out_of_range& oor){
-        return;
+        return false;
     }
     TString npVarName(Form("alpha_%s",npName.Data()));
     RooRealVar npVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
     np_vars.add(npVar);
     lowValues.push_back(norm_varies.at(0));
     highValues.push_back(norm_varies.at(1));
+    return true;
 }
 
 RooAbsPdf* Sample::getPDF(){

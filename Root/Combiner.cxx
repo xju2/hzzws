@@ -11,12 +11,15 @@
 #include <boost/algorithm/string.hpp>
 
 #include <RooRealVar.h>
+#include <RooAddPdf.h>
+#include <RooWorkspace.h>
+#include <RooCategory.h>
 
 Combiner::Combiner(const char* _name, const char* _configName):
-    name(_name)
+    m_name(_name)
 {
-    cout<<" name: "<< _name << endl;
-  readConfig(_configName);
+    cout<<" name: "<< m_name << endl;
+    readConfig(_configName);
 }
 
 Combiner::~Combiner(){
@@ -89,7 +92,6 @@ void Combiner::readConfig(const char* configName){
         sysMan = new SystematicsManager();
         cerr << "NPlist is not defined" << endl;
     }
-    bool with_sys = sysMan ->totalNP() > 0;
     ///////////////////////////////////
     //add observable  (not for 2D yet)
     ///////////////////////////////////
@@ -110,6 +112,9 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     istringstream iss_cat( all_dic.at("jobs")["categories"]);
     string category_name;
+    RooCategory channelCat("channelCat", "channelCat");
+    map<string, RooAbsPdf*> pdfMap;
+    int catIndex = 0;
     while( getline( iss_cat, category_name, delim )){
         cout <<"On category: "<< category_name <<endl;
 
@@ -127,17 +132,25 @@ void Combiner::readConfig(const char* configName){
         bool is_signal_sample = true;
         for(auto& signal_name : *signal_names){
             Sample* sample = getSample(signal_name);
-            if(sample) category->addSample(sample, is_signal_sample, with_sys);
+            if(sample) category->addSample(sample, is_signal_sample, sysMan);
         }
         is_signal_sample = false;
         for(auto& bkg_name : *bkg_names){
             Sample* sample = getSample(bkg_name);
-            if(sample) category->addSample(sample, is_signal_sample, with_sys);
+            if(sample) category->addSample(sample, is_signal_sample, sysMan);
         }
-        allCategories.push_back(category);
+        string catName(Form("%sCat",category_name.c_str()));
+        channelCat.defineType(catName.c_str(), catIndex);
+        pdfMap[catName] = category ->getPDF();
     }
-
+    auto* simPdf = new RooSimultaneous("simPdf","simPdf", pdfMap, channelCat);
+    auto* workspace = new RooWorkspace(m_name.Data());
+    workspace ->import(*simPdf);
+    workspace ->writeToFile("combined.root");
 }
+
+// void Combiner::toWorkspace(){
+// }
 
 void Combiner::printDic()
 {

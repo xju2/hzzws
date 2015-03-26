@@ -34,8 +34,8 @@ class Sample{
 
         void setChannel(RooArgSet&, const char* channelName, bool with_sys);
 
-        void addShapeSys(TString& npName);
-        void addNormSys(TString& npName);
+        bool addShapeSys(TString& npName);
+        bool addNormSys(TString& npName);
         
         //derivate class may want their implemations
         virtual RooAbsPdf* getPDF();

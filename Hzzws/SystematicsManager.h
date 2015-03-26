@@ -20,8 +20,7 @@ class SystematicsManager{
         SystematicsManager(const char* fileName);
         virtual ~SystematicsManager();
         void readNPs(const char* fileName);
-        void add_sys(Sample*);
-        void add_np(RooWorkspace*);
+        vector<TString>* add_sys(Sample*);
         inline int totalNP(){return all_nps->size();}
 };
 #endif
