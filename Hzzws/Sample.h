@@ -1,19 +1,9 @@
-// =====================================================================================
-// 
-//       Filename:  Sample.h
 // 
 //    Description:  @name, name of the sample
 //                  @hist_files,  root file contains smoothed histograms
 //                  @shape_files, root file contains shape variations
 //                  @norm_sys_file,  text file contains normalize sys
 // 
-//        Version:  1.0
-//        Created:  03/13/2015 11:20:07
-//       Revision:  none
-//       Compiler:  g++
-// 
-// 
-// =====================================================================================
 #ifndef __HZZWS_SAMPLE_H__
 #define __HZZWS_SAMPLE_H__
 #include <string>
@@ -34,18 +24,18 @@ using namespace std;
 class Sample{
 
     public:
-        typedef std::map<TString, std::vector<TH1*> > ShapeDic;
-        typedef std::map<TString, std::vector<float> > NormDic;
+        typedef map<TString, vector<TH1*> > ShapeDic;
+        typedef map<TString, vector<float> > NormDic;
 
-        Sample(const char* name, const char* input_path, 
-                const char* shape_sys_path, const char* norm_sys_path);
+        explicit Sample(const char* name, const char* input, 
+                const char* shape_sys, const char* norm_sys, const char* _path);
         virtual ~Sample();
         inline string getName(){ return this->name;}
 
-        void setChannel(RooArgSet&, const char* channelName);
+        void setChannel(RooArgSet&, const char* channelName, bool with_sys);
 
-        void addShapeSys(TString& npName);
-        void addNormSys(TString& npName);
+        bool addShapeSys(TString& npName);
+        bool addNormSys(TString& npName);
         
         //derivate class may want their implemations
         virtual RooAbsPdf* getPDF();
@@ -53,15 +43,15 @@ class Sample{
 
     private: 
         //Data
-        std::string name;
+        string name;
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
-        std::ifstream norm_sys_file;
+        ifstream norm_sys_file;
         //following variables are Category dependent
-        std::string category_name;
+        string category_name;
         RooArgList obsList;            
-        std::string obsname;
+        string obsname;
 
         //double expected_values;  
         TH1* norm_hist;

@@ -1,18 +1,8 @@
-// =====================================================================================
-// 
-//       Filename:  Sample.cpp
+// =========================================================================
 // 
 //    Description:  
 // 
-//        Version:  1.0
-//        Created:  03/13/2015 11:38:50
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
+// ==========================================================================
 #include "Hzzws/Sample.h"
 #include <iostream>
 #include <stdexcept>
@@ -25,17 +15,15 @@
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
 
 Sample::Sample(const char* _name, 
-        const char* _input_path,  
-        const char* _shape_sys_path, 
-        const char* _norm_sys_path):
+        const char* _input,  
+        const char* _shape_sys, 
+        const char* _norm_sys,
+        const char* _path):
     name(_name)
 {
-    hist_files = TFile::Open(_input_path, "read");
-    if(!hist_files) cerr<<"Input file doesnot exist: "<< _input_path << endl;
-    shape_files = TFile::Open(_shape_sys_path, "read");
-    if(!shape_files) cerr <<" No shape systematic for Sample: "<< _name <<
-        " at: "<< _shape_sys_path<< endl;
-    norm_sys_file.open(_norm_sys_path, ifstream::in);
+    hist_files = TFile::Open(Form("%s/%s", _path, _input), "read");
+    shape_files = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
+    norm_sys_file.open(Form("%s/%s", _path, _norm_sys), ifstream::in);
 
     np_constraint = NULL;
     norm_hist = NULL;
@@ -58,7 +46,10 @@ RooHistPdf* Sample::makeHistPdf(TH1* hist)
 }
 
 double Sample::getExpectedValue(){
-    // todo: need to be tested for 2-d
+    // TODO: need to be tested for 2-d
+    if(!norm_hist){
+        return 0.0;
+    }
     double expected_values = 0;  
     RooRealVar* x_var = dynamic_cast<RooRealVar*>(obsList.at(0));
     double xmax = x_var ->getMax(), xmin = x_var ->getMin();
@@ -73,42 +64,49 @@ double Sample::getExpectedValue(){
         int binyh = norm_hist ->FindFixBin(xmax, ymax);
         expected_values = norm_hist ->Integral(binyl, binyh);
     }else{
-        std::cerr <<"3D is not supported.. "<<std::endl;
+        cerr <<"3D is not supported.. "<<endl;
     }
-    std::cout<<"Sample "<< name <<" expects "<< expected_values <<" in "<< category_name <<std::endl;
+    cout<<"Sample "<< name <<" expects "<< expected_values <<" in "<< category_name <<endl;
     return expected_values;
 }
 
 
-void Sample::setChannel(RooArgSet& _obs, const char* _ch_name){
-    obsList.Clear();
+void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
+{
+    obsList.removeAll();
 
     // set observables
-    obsList = RooArgList(_obs);
-    if(obsList.getSize() == 1) obsname = std::string(obsList.at(0)->GetName());
-    else if(obsList.getSize() == 2) obsname = std::string(Form("%s_%s", obsList.at(0)->GetName(), obsList.at(1)->GetName()));
-    else {
-        std::cerr <<"3D is not supported.. "<<std::endl;
+    TIter next(_obs.createIterator());
+    RooRealVar* var;
+    while ( (var = (RooRealVar*) next()) ){
+        obsList.add(*var);
     }
-    std::cout<<" observables name: "<< obsname << std::endl;
+    if(obsList.getSize() == 1) obsname = string(obsList.at(0)->GetName());
+    else if(obsList.getSize() == 2) obsname = string(Form("%s_%s", obsList.at(0)->GetName(), obsList.at(1)->GetName()));
+    else {
+        cerr << "3D is not supported.. " << endl;
+    }
+    cout<<" observables name: "<< obsname << endl;
 
     // set category name
-    category_name = std::string(_ch_name);
-    std::cout<<" Sample: "<< name<< " set to category: " << category_name<<std::endl;
+    category_name = string(_ch_name);
+    cout<<" Sample: "<< name<< " set to category: " << category_name<<endl;
 
     baseName = TString(Form("%s_%s", name.c_str(), category_name.c_str()));
-    // get norminal histogram
 
+    // get norminal histogram
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files->Get(histName.Data());
     if(!norm_hist){
-        std::cerr<< histName.Data() << " does not exist!!" << std::endl;
+        cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
     }
-
-    // get shape sys dictionary
-    this ->getShapeSys();
-    // get normalization sys dictionary
-    this ->getNormSys();
+    
+    if (with_sys){
+        // get shape sys dictionary
+        this ->getShapeSys();
+        // get normalization sys dictionary
+        this ->getNormSys();
+    }
 
 }
 
@@ -125,6 +123,9 @@ void Sample::getShapeSys(){
     shapes_dic.clear();
     paramNames.clear();
     sysPdfs.clear();
+    if(!shape_files) return;
+        
+
 
     TIter next(shape_files->GetListOfKeys());
     TKey* key;
@@ -138,7 +139,7 @@ void Sample::getShapeSys(){
         TString varyName = tmpStr ->GetString();
 
         if( keyname.Contains(this->category_name) ){
-            std::vector<TH1*> shape_vary;
+            vector<TH1*> shape_vary;
             if(varyName.EqualTo("sym")){
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
             }else if(varyName.EqualTo("up")){
@@ -147,33 +148,39 @@ void Sample::getShapeSys(){
                 TString& downname = keyname.ReplaceAll("up","down");
                 TH1* h1 = dynamic_cast<TH1*>(shape_files->Get(downname.Data()));
                 if(h1) shape_vary.push_back(h1);
-                else std::cerr<<" Cannot find down shape: "<< downname.Data()<<std::endl;
+                else cerr<<" Cannot find down shape: "<< downname.Data()<<endl;
             }else if(varyName.EqualTo("down")){
                 continue;
             }else{
-                std::cerr <<"Don't undertand the histname: "<< keyname <<std::endl;
+                cerr << "Don't undertand the histname: " << keyname << endl;
             }
             shapes_dic[npName] = shape_vary;
         }
         delete splitNames;
     }
+    cout << shapes_dic.size() <<" shape systematics added!" << endl;
 }
 
 void Sample::getNormSys(){
     norms_dic.clear();
-    // re-fill norm dic
-    std::vector<float>  norm_sys;
-    norm_sys.push_back(0.0);
-    TString np("none");
-    norms_dic[np] = norm_sys;
+    if(!norm_sys_file.good()) return;
+    TString name;
+    float low_value, high_value;
+    while (norm_sys_file >> name >> low_value >> high_value){
+        vector<float>  norm_sys;
+        norm_sys.push_back(low_value);
+        norm_sys.push_back(high_value);
+        norms_dic[name] = norm_sys;
+    }
+    cout << norms_dic.size() <<" normalization systematics added!" << endl;
 }
 
-void Sample::addShapeSys(TString& npName){
+bool Sample::addShapeSys(TString& npName){
     vector<TH1*> shape_varies ;
     try{
         shape_varies = this->shapes_dic.at(npName);
     }catch(const out_of_range& oor){
-        return ;
+        return false;
     }
 
     TH1* histUp   = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_up",  norm_hist->GetName())));
@@ -194,26 +201,28 @@ void Sample::addShapeSys(TString& npName){
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
         }
     }else{
-        cerr <<" Check the size of shape varies: "<< shape_varies.size() <<endl;
+        cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: "<< shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
     RooHistPdf* histUpPDF   = this->makeHistPdf(histUp);
     RooHistPdf* histDownPDF = this->makeHistPdf(histDown);
     sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
+    return true;
 }
 
-void Sample::addNormSys(TString& npName){
-    vector<float> norm_varies;
+bool Sample::addNormSys(TString& npName){
+    vector<float>* norm_varies;
     try{
-        norm_varies = this->norms_dic.at(npName);
+        norm_varies =&( this->norms_dic.at(npName));
     }catch(const out_of_range& oor){
-        return;
+        return false;
     }
     TString npVarName(Form("alpha_%s",npName.Data()));
-    RooRealVar npVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
-    np_vars.add(npVar);
-    lowValues.push_back(norm_varies.at(0));
-    highValues.push_back(norm_varies.at(1));
+    RooRealVar* npVar = new RooRealVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
+    np_vars.add(*npVar);
+    lowValues.push_back(norm_varies ->at(0));
+    highValues.push_back(norm_varies->at(1));
+    return true;
 }
 
 RooAbsPdf* Sample::getPDF(){
@@ -237,9 +246,19 @@ RooAbsReal* Sample::getCoeff(){
    }else{
        TString fixName(Form("fiv_%s", baseName.Data()));
        // add FlexibleInterpVar
-       RooStats::HistFactory::FlexibleInterpVar* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
+       for(int i = 0; i < np_vars.getSize(); i++){
+           RooRealVar* np = (RooRealVar*) np_vars.at(i);
+           cout << "np: " << np->GetName() << " " << np->getVal() << endl;
+       }
+       for(auto& low : lowValues){
+           cout << "low value: " << low << endl;
+       }
+       for(auto& high : highValues){
+           cout << "high value: " << high << endl;
+       }
+       auto* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
        // 4: piece-wise log outside boundaries, polynomial interpolation inside
-       fiv ->setAllInterpCodes(4); 
+       fiv->setAllInterpCodes(4); 
        TString prodName(Form("nTot%s", baseName.Data()));
        RooProduct* normProd = new RooProduct(prodName.Data(), prodName.Data(), RooArgList(*norm, *fiv));
        return normProd;
