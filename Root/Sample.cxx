@@ -46,7 +46,10 @@ RooHistPdf* Sample::makeHistPdf(TH1* hist)
 }
 
 double Sample::getExpectedValue(){
-    // todo: need to be tested for 2-d
+    // TODO: need to be tested for 2-d
+    if(!norm_hist){
+        return 0.0;
+    }
     double expected_values = 0;  
     RooRealVar* x_var = dynamic_cast<RooRealVar*>(obsList.at(0));
     double xmax = x_var ->getMax(), xmin = x_var ->getMin();
@@ -70,7 +73,7 @@ double Sample::getExpectedValue(){
 
 void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
 {
-    obsList.Clear();
+    obsList.removeAll();
 
     // set observables
     TIter next(_obs.createIterator());
@@ -95,7 +98,7 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files->Get(histName.Data());
     if(!norm_hist){
-        cerr<< histName.Data() << " does not exist!!" << endl;
+        cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
     }
     
     if (with_sys){
@@ -155,6 +158,7 @@ void Sample::getShapeSys(){
         }
         delete splitNames;
     }
+    cout << shapes_dic.size() <<" shape systematics added!" << endl;
 }
 
 void Sample::getNormSys(){
@@ -168,6 +172,7 @@ void Sample::getNormSys(){
         norm_sys.push_back(high_value);
         norms_dic[name] = norm_sys;
     }
+    cout << norms_dic.size() <<" normalization systematics added!" << endl;
 }
 
 bool Sample::addShapeSys(TString& npName){
@@ -196,7 +201,7 @@ bool Sample::addShapeSys(TString& npName){
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
         }
     }else{
-        cerr <<" Check the size of shape varies: "<< shape_varies.size() <<endl;
+        cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: "<< shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
     RooHistPdf* histUpPDF   = this->makeHistPdf(histUp);
@@ -206,17 +211,17 @@ bool Sample::addShapeSys(TString& npName){
 }
 
 bool Sample::addNormSys(TString& npName){
-    vector<float> norm_varies;
+    vector<float>* norm_varies;
     try{
-        norm_varies = this->norms_dic.at(npName);
+        norm_varies =&( this->norms_dic.at(npName));
     }catch(const out_of_range& oor){
         return false;
     }
     TString npVarName(Form("alpha_%s",npName.Data()));
-    RooRealVar npVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
-    np_vars.add(npVar);
-    lowValues.push_back(norm_varies.at(0));
-    highValues.push_back(norm_varies.at(1));
+    RooRealVar* npVar = new RooRealVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
+    np_vars.add(*npVar);
+    lowValues.push_back(norm_varies ->at(0));
+    highValues.push_back(norm_varies->at(1));
     return true;
 }
 
@@ -241,9 +246,19 @@ RooAbsReal* Sample::getCoeff(){
    }else{
        TString fixName(Form("fiv_%s", baseName.Data()));
        // add FlexibleInterpVar
-       RooStats::HistFactory::FlexibleInterpVar* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
+       for(int i = 0; i < np_vars.getSize(); i++){
+           RooRealVar* np = (RooRealVar*) np_vars.at(i);
+           cout << "np: " << np->GetName() << " " << np->getVal() << endl;
+       }
+       for(auto& low : lowValues){
+           cout << "low value: " << low << endl;
+       }
+       for(auto& high : highValues){
+           cout << "high value: " << high << endl;
+       }
+       auto* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
        // 4: piece-wise log outside boundaries, polynomial interpolation inside
-       fiv ->setAllInterpCodes(4); 
+       fiv->setAllInterpCodes(4); 
        TString prodName(Form("nTot%s", baseName.Data()));
        RooProduct* normProd = new RooProduct(prodName.Data(), prodName.Data(), RooArgList(*norm, *fiv));
        return normProd;

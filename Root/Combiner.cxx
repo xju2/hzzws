@@ -54,7 +54,7 @@ void Combiner::readConfig(const char* configName){
         lineCount ++ ;
     }
     all_dic[section_name] = section_dic;  //pick up the last section
-    printDic();
+    //printDic();
 
     ///////////////////////////////////
     //load the data
@@ -116,6 +116,7 @@ void Combiner::readConfig(const char* configName){
     map<string, RooAbsPdf*> pdfMap;
     int catIndex = 0;
     while( getline( iss_cat, category_name, delim )){
+        boost::algorithm::trim(category_name);
         cout <<"On category: "<< category_name <<endl;
 
         string signals = findCategoryConfig(category_name, "signal");
@@ -140,7 +141,7 @@ void Combiner::readConfig(const char* configName){
             if(sample) category->addSample(sample, is_signal_sample, sysMan);
         }
         string catName(Form("%sCat",category_name.c_str()));
-        channelCat.defineType(catName.c_str(), catIndex);
+        channelCat.defineType(catName.c_str(), catIndex++);
         pdfMap[catName] = category ->getPDF();
     }
     auto* simPdf = new RooSimultaneous("simPdf","simPdf", pdfMap, channelCat);
@@ -181,7 +182,7 @@ Sample* Combiner::getSample(string& name)
     try{
         sample = allSamples.at(name);
     }catch(const out_of_range& oor){
-        cerr << "ERROR: Sample " << name << " not defined! " << endl;
+        cerr << "ERROR (Combiner::getSample): Sample " << name << " not defined! " << endl;
     }
     return sample;
 }
@@ -196,7 +197,7 @@ string Combiner::findCategoryConfig(string& cat_name, const char* name)
         try{
             token = all_dic.at("jobs").at(name);
         }catch(const out_of_range& orr){
-            cerr << "ERROR: no |" << name << "| found in |" << cat_name << "|" << endl;
+            cerr << "ERROR (Combiner::findCategoryConfig) : no |" << name << "| found in |" << cat_name << "|" << endl;
             return "";
         }
     }
