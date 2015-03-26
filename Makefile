@@ -13,7 +13,7 @@ INCLUDES = -I.
 
 ###################################################################################
 SILENT=
-all: ./lib/libHzzws.so ./test-bin/mainCombiner
+all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother
 
 ./lib/libHzzws.so : obj/Smoother.o  obj/SmoothMan.o obj/Sample.o obj/SystematicsManager.o obj/Category.o obj/Combiner.o
 	$(SILENT)echo Linking `basename $@`

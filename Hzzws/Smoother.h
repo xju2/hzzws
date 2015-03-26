@@ -19,17 +19,24 @@
 
 #include <RooArgSet.h>
 #include <TH1.h>
-#include <TString.h>
 #include <TTree.h>
+#include <TChain.h>
+
+using namespace std;
+
 class Smoother{
-    private:
-        std::string weight_name;
-        TTree* tree;
-        TFile* outfile;
    public:
-        explicit Smoother(const char* tree_path, const char* tree_name, const char* outfilename);
+        Smoother(string outname, float rho);
         ~Smoother();
-        void smooth(RooArgSet& obsAndweight, const char* branch_name, const char* cuts, 
-                const char* outname, double rho, TString& options);
+
+        void setInFileSingle(string fname);
+        void setInFileMulti(vector<string> files);
+        void smooth(string oname, string treename, RooArgSet &treeobs, string cuts, float m = 0);
+    
+   private:
+        float m_rho = 1.0;
+        vector<string> m_files;
+        TFile *infile, *outfile;
 };
+
 #endif

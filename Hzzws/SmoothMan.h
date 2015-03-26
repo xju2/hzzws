@@ -17,17 +17,31 @@
 #define __SMOOTHMAN_H__
 #include <string>
 #include <map>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <boost/algorithm/string.hpp>
+
+#include "RooRealVar.h"
+#include "RooArgSet.h"
+
+using namespace std;
 
 class SmoothMan{
-    private:
-        std::string tree_path;
-        std::string tree_name;
-        std::string outfilename;
-        std::string branch_name;
-
     public:
-        SmoothMan(const char* configFile);
+        SmoothMan(const char *configFile);
         virtual ~SmoothMan();
+
+        void readConfig(const char *configFile);
+        void printDic(map<string, map<string, string> > &dic);
+
+        void process();
+
+    private:
+        map<string, map<string, string> > m_dic;
+
+        vector<string> parser(string s, char d);
          
 };
 #endif

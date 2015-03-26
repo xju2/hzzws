@@ -1,3 +1,5 @@
 ./obj/
 ./lib/
 */*.swp
+*/*.root
+share/*.list
