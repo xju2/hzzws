@@ -6,6 +6,8 @@
 
 #include <RooRealVar.h>
 #include <RooAddPdf.h>
+#include <RooGaussian.h>
+#include <RooProdPdf.h>
 
 //________________________________________________________________________
     Category::Category(const string& label)
@@ -18,7 +20,7 @@ Category::~Category()
 {
 }
 
-void Category::addSample(Sample* sample, bool is_signal, SystematicsManager* sysMan){
+void Category::addSample(Sample* sample, SystematicsManager* sysMan){
     bool with_sys = sysMan->totalNP() > 0;
     sample ->setChannel(this->obs, this ->m_label.c_str(), with_sys);
 
@@ -32,7 +34,6 @@ void Category::addSample(Sample* sample, bool is_signal, SystematicsManager* sys
         }
         delete nps;
     }
-    //TODO to something else to signal
     pdfList.add(*(sample->getPDF()));
     coefList.add(*(sample->getCoeff()));
 }
@@ -50,6 +51,23 @@ void Category::setObservables(RooArgSet& _obs)
 RooAbsPdf* Category::getPDF(){
     TString pdfname( Form( "modelunc_%s", m_label.c_str() ) );
     RooAddPdf* sum_pdf = new RooAddPdf(pdfname.Data(), pdfname.Data(), pdfList, coefList);
-    //TODO add constraint!
-    return sum_pdf;
+    this->gaussianConstraint(); 
+    constraintList.add(*sum_pdf);
+
+    TString modelname( Form( "model_%s", m_label.c_str() ) );
+    auto* prod_pdf = new RooProdPdf(modelname.Data(), modelname.Data(), constraintList);
+    return prod_pdf;
+}
+
+void Category::gaussianConstraint(){
+    auto* sigma = new RooRealVar("sigma", "sigma", 1.0);
+    for(auto& np : nps_set){
+        string _name(Form("nom_%s", np.Data()));
+        string _var_name(Form("alpha_%s", np.Data()));
+        auto* var = new RooRealVar(_var_name.c_str(), _var_name.c_str(), 0., -5, 5);
+        auto* mean = new RooRealVar(_name.c_str(), _name.c_str(), 0.0);
+        string _pdfname(Form("alpha_%sConstraint", np.Data() ));
+        RooGaussian* gauss = new RooGaussian(_pdfname.c_str(), _pdfname.c_str(), *var, *mean, *sigma);
+        constraintList.add(*gauss);
+    }
 }

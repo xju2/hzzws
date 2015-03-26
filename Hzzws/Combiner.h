@@ -18,6 +18,7 @@ using namespace std;
 class Combiner{
     private:
         TString m_name;
+        string simpdf_name;
         map<string, map<string, string> > all_dic;
 
         //TFile* data_file; //TODO
@@ -37,6 +38,7 @@ class Combiner{
 
         // read the overall configurations
         void readConfig(const char* _name);
+        void configWorkspace(RooWorkspace* ws);
     
     public:
         explicit Combiner(const char* _name, const char* _configName);

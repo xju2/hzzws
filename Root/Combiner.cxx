@@ -14,9 +14,11 @@
 #include <RooAddPdf.h>
 #include <RooWorkspace.h>
 #include <RooCategory.h>
+#include "RooStats/ModelConfig.h"
 
 Combiner::Combiner(const char* _name, const char* _configName):
-    m_name(_name)
+    m_name(_name),
+    simpdf_name("simPdf")
 {
     cout<<" name: "<< m_name << endl;
     readConfig(_configName);
@@ -76,8 +78,8 @@ void Combiner::readConfig(const char* configName){
         cout << sample.second << endl;
         auto* tokens = tokenizeString(sample.second, delim);
         // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name;
-        allSamples[sample.first] = new Sample(tokens->at(3).c_str(), tokens->at(0).c_str(),
-                tokens->at(1).c_str(), tokens->at(2).c_str(), file_path.c_str());
+        allSamples[sample.first] = new Sample(tokens->at(3).c_str(), sample.first.c_str(), 
+                tokens->at(0).c_str(), tokens->at(1).c_str(), tokens->at(2).c_str(), file_path.c_str());
         delete tokens;
     }
 
@@ -107,6 +109,7 @@ void Combiner::readConfig(const char* configName){
     obs.add(var);
     delete obsPara;
 
+    auto* workspace = new RooWorkspace(m_name.Data());
     ///////////////////////////////////
     //add categories
     ///////////////////////////////////
@@ -119,39 +122,31 @@ void Combiner::readConfig(const char* configName){
         boost::algorithm::trim(category_name);
         cout <<"On category: "<< category_name <<endl;
 
-        string signals = findCategoryConfig(category_name, "signal");
-        if(signals == "") continue;
+        string mcsets = findCategoryConfig(category_name, "mcsets");
+        if(mcsets == "") continue;
 
-        string backgrounds = findCategoryConfig(category_name, "background");
-        if(backgrounds == "") continue;
-
-        auto* signal_names = tokenizeString( signals, ',' ) ;
-        auto* bkg_names = tokenizeString( backgrounds, ',' );
+        auto* mcsets_names = tokenizeString( mcsets, ',' ) ;
         Category* category = new Category(category_name);
         category->setObservables(obs);
 
-        bool is_signal_sample = true;
-        for(auto& signal_name : *signal_names){
-            Sample* sample = getSample(signal_name);
-            if(sample) category->addSample(sample, is_signal_sample, sysMan);
+        for(auto& mcset_name : *mcsets_names){
+            Sample* sample = getSample(mcset_name);
+            if(sample) category->addSample(sample, sysMan);
         }
-        is_signal_sample = false;
-        for(auto& bkg_name : *bkg_names){
-            Sample* sample = getSample(bkg_name);
-            if(sample) category->addSample(sample, is_signal_sample, sysMan);
-        }
+
         string catName(Form("%sCat",category_name.c_str()));
         channelCat.defineType(catName.c_str(), catIndex++);
-        pdfMap[catName] = category ->getPDF();
+        RooAbsPdf* final_pdf = category ->getPDF();
+        string final_pdf_name(final_pdf->GetName()); 
+        workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());
+        delete category;
+        pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());
     }
-    auto* simPdf = new RooSimultaneous("simPdf","simPdf", pdfMap, channelCat);
-    auto* workspace = new RooWorkspace(m_name.Data());
+    auto* simPdf = new RooSimultaneous(simpdf_name.c_str(), simpdf_name.c_str(), pdfMap, channelCat);
     workspace ->import(*simPdf);
+    this->configWorkspace(workspace);
     workspace ->writeToFile("combined.root");
 }
-
-// void Combiner::toWorkspace(){
-// }
 
 void Combiner::printDic()
 {
@@ -202,4 +197,41 @@ string Combiner::findCategoryConfig(string& cat_name, const char* name)
         }
     }
     return token;
+}
+
+void Combiner::configWorkspace(RooWorkspace* ws)
+{
+    //////////////////// 
+    // define set
+    //////////////////// 
+    RooArgSet poiSet;
+    poiSet.add(* ws->var("mu") );
+
+    RooArgSet nuisanceSet;
+    RooArgSet globalobsSet;
+    for(auto& np : *(sysMan->getNP()))
+    {
+        string nuisanceName(Form("alpha_%s", np.Data()));
+        string globalName  (Form("nom_%s", np.Data()));
+        nuisanceSet.add( *ws->var(nuisanceName.c_str()) );
+        globalobsSet.add( *ws->var(globalName.c_str()) );
+    }
+    ws->defineSet("obs", obs);
+    ws->defineSet("nuisance", nuisanceSet);
+    ws->defineSet("globalobs", globalobsSet);
+    ws->defineSet("poi", poiSet);
+
+    //////////////////// 
+    // make model config 
+    //////////////////// 
+
+    RooStats::ModelConfig modelConfig("ModelConfig","H->4l example");
+    modelConfig.SetWorkspace           ( *ws );
+
+    modelConfig.SetPdf(*ws->pdf(simpdf_name.c_str()));
+    modelConfig.SetParametersOfInterest( *ws->set("poi") );
+    modelConfig.SetObservables         ( *ws->set("obs") );
+    modelConfig.SetNuisanceParameters  ( *ws->set("nuisance") );
+    modelConfig.SetGlobalObservables   ( *ws->set("globalobs") );
+    ws ->import(modelConfig);
 }

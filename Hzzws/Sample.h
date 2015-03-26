@@ -27,7 +27,7 @@ class Sample{
         typedef map<TString, vector<TH1*> > ShapeDic;
         typedef map<TString, vector<float> > NormDic;
 
-        explicit Sample(const char* name, const char* input, 
+        explicit Sample(const char* name, const char* nickname, const char* input, 
                 const char* shape_sys, const char* norm_sys, const char* _path);
         virtual ~Sample();
         inline string getName(){ return this->name;}
@@ -36,6 +36,7 @@ class Sample{
 
         bool addShapeSys(TString& npName);
         bool addNormSys(TString& npName);
+        void addMu(RooArgList& prodSet);
         
         //derivate class may want their implemations
         virtual RooAbsPdf* getPDF();
@@ -44,6 +45,8 @@ class Sample{
     private: 
         //Data
         string name;
+        string nickname;
+        bool is_signal;
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
