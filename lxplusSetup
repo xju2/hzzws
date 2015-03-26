@@ -1,5 +1,12 @@
 #!/bin/bash
 
+### Make necessary folders
+if [ ! -d obj ]; then mkdir obj; fi
+if [ ! -d lib ]; then mkdir lib; fi
+if [ ! -d "test-bin" ]; then mkdir "test-bin"; fi
+if [ ! -d share ]; then mkdir share; fi
+if [ ! -d intermediates ]; then mkdir intermediates; fi
+
 export WSDIR=/afs/cern.ch/work/l/lkaplan/workarea/hzzws
 
 . /afs/cern.ch/atlas/project/HSG7/root/current/x86_64-slc6-gcc48/setup.sh 
