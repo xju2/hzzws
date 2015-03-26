@@ -2,4 +2,7 @@
 */*.so
 */*.swp
 */*.root
+obj
+test-bin
+lib
 share/*.list
