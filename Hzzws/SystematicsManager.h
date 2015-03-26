@@ -9,6 +9,7 @@
 #include <RooWorkspace.h>
 #include <TString.h>
 
+using namespace std;
 
 class SystematicsManager{
     private:
@@ -21,5 +22,6 @@ class SystematicsManager{
         void readNPs(const char* fileName);
         void add_sys(Sample*);
         void add_np(RooWorkspace*);
+        inline int totalNP(){return all_nps->size();}
 };
 #endif

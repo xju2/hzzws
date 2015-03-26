@@ -16,7 +16,7 @@ class Category {
   virtual ~Category();
 
   std::string label() const { return m_label; }
-  void addSample(Sample* sample, bool is_signal);
+  void addSample(Sample* sample, bool is_signal, bool with_systematic);
   void setObservables(RooArgSet& _obs);
  private:
 

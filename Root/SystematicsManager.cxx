@@ -18,6 +18,7 @@
 using namespace std;
 
 SystematicsManager::SystematicsManager(){
+    all_nps = new std::vector<TString>();
 }
 
 SystematicsManager::~SystematicsManager(){

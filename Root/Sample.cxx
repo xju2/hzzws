@@ -61,14 +61,15 @@ double Sample::getExpectedValue(){
         int binyh = norm_hist ->FindFixBin(xmax, ymax);
         expected_values = norm_hist ->Integral(binyl, binyh);
     }else{
-        std::cerr <<"3D is not supported.. "<<std::endl;
+        cerr <<"3D is not supported.. "<<endl;
     }
-    std::cout<<"Sample "<< name <<" expects "<< expected_values <<" in "<< category_name <<std::endl;
+    cout<<"Sample "<< name <<" expects "<< expected_values <<" in "<< category_name <<endl;
     return expected_values;
 }
 
 
-void Sample::setChannel(RooArgSet& _obs, const char* _ch_name){
+void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
+{
     obsList.Clear();
 
     // set observables
@@ -85,8 +86,8 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name){
     cout<<" observables name: "<< obsname << endl;
 
     // set category name
-    category_name = std::string(_ch_name);
-    std::cout<<" Sample: "<< name<< " set to category: " << category_name<<std::endl;
+    category_name = string(_ch_name);
+    cout<<" Sample: "<< name<< " set to category: " << category_name<<endl;
 
     baseName = TString(Form("%s_%s", name.c_str(), category_name.c_str()));
 
@@ -94,13 +95,15 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name){
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files->Get(histName.Data());
     if(!norm_hist){
-        std::cerr<< histName.Data() << " does not exist!!" << std::endl;
+        cerr<< histName.Data() << " does not exist!!" << endl;
     }
-
-    // get shape sys dictionary
-    this ->getShapeSys();
-    // get normalization sys dictionary
-    this ->getNormSys();
+    
+    if (with_sys){
+        // get shape sys dictionary
+        this ->getShapeSys();
+        // get normalization sys dictionary
+        this ->getNormSys();
+    }
 
 }
 
@@ -133,7 +136,7 @@ void Sample::getShapeSys(){
         TString varyName = tmpStr ->GetString();
 
         if( keyname.Contains(this->category_name) ){
-            std::vector<TH1*> shape_vary;
+            vector<TH1*> shape_vary;
             if(varyName.EqualTo("sym")){
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
             }else if(varyName.EqualTo("up")){
@@ -142,11 +145,11 @@ void Sample::getShapeSys(){
                 TString& downname = keyname.ReplaceAll("up","down");
                 TH1* h1 = dynamic_cast<TH1*>(shape_files->Get(downname.Data()));
                 if(h1) shape_vary.push_back(h1);
-                else std::cerr<<" Cannot find down shape: "<< downname.Data()<<std::endl;
+                else cerr<<" Cannot find down shape: "<< downname.Data()<<endl;
             }else if(varyName.EqualTo("down")){
                 continue;
             }else{
-                std::cerr <<"Don't undertand the histname: "<< keyname <<std::endl;
+                cerr << "Don't undertand the histname: " << keyname << endl;
             }
             shapes_dic[npName] = shape_vary;
         }
@@ -157,12 +160,14 @@ void Sample::getShapeSys(){
 void Sample::getNormSys(){
     norms_dic.clear();
     if(!norm_sys_file.good()) return;
-    // re-fill norm dic
-    // TODO
-    std::vector<float>  norm_sys;
-    norm_sys.push_back(0.0);
-    TString np("none");
-    norms_dic[np] = norm_sys;
+    TString name;
+    float low_value, high_value;
+    while (norm_sys_file >> name >> low_value >> high_value){
+        vector<float>  norm_sys;
+        norm_sys.push_back(low_value);
+        norm_sys.push_back(high_value);
+        norms_dic[name] = norm_sys;
+    }
 }
 
 void Sample::addShapeSys(TString& npName){

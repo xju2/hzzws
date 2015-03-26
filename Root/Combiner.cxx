@@ -20,9 +20,9 @@ Combiner::Combiner(const char* _name, const char* _configName):
 }
 
 Combiner::~Combiner(){
-    for(auto* cat : allCategories){
-        delete cat;
-    }
+    delete sysMan;
+    for(auto* cat : allCategories)  delete cat;
+    for(auto& sample : allSamples) delete sample.second;
 }
 
 void Combiner::readConfig(const char* configName){
@@ -89,6 +89,7 @@ void Combiner::readConfig(const char* configName){
         sysMan = new SystematicsManager();
         cerr << "NPlist is not defined" << endl;
     }
+    bool with_sys = sysMan ->totalNP() > 0;
     ///////////////////////////////////
     //add observable  (not for 2D yet)
     ///////////////////////////////////
@@ -126,12 +127,12 @@ void Combiner::readConfig(const char* configName){
         bool is_signal_sample = true;
         for(auto& signal_name : *signal_names){
             Sample* sample = getSample(signal_name);
-            if(sample) category->addSample(sample, is_signal_sample);
+            if(sample) category->addSample(sample, is_signal_sample, with_sys);
         }
         is_signal_sample = false;
         for(auto& bkg_name : *bkg_names){
             Sample* sample = getSample(bkg_name);
-            if(sample) category->addSample(sample, is_signal_sample);
+            if(sample) category->addSample(sample, is_signal_sample, with_sys);
         }
         allCategories.push_back(category);
     }

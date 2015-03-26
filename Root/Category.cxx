@@ -22,9 +22,9 @@ Category::~Category()
     delete bkg_samples;
 }
 
-void Category::addSample(Sample* sample, bool is_signal){
+void Category::addSample(Sample* sample, bool is_signal, bool with_sys){
     //tell sample, work on this category!
-    sample ->setChannel(this->obs, this ->m_label.c_str());
+    sample ->setChannel(this->obs, this ->m_label.c_str(), with_sys);
     if(is_signal){
         signal_samples ->push_back(sample);
     }else{

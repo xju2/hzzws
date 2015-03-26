@@ -27,6 +27,10 @@ class Combiner{
 
         string findCategoryConfig(string& cat_name, const char* name);
         Sample* getSample(string& name);
+        ////////////////////////
+        //tokenize the string with specific delimeter. 
+        //!!Don't forget delete the returned vector<string>*!!
+        ////////////////////////
         vector<string>* tokenizeString(string& str, char delim);
         void printDic();
 

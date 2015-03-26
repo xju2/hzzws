@@ -24,15 +24,15 @@ using namespace std;
 class Sample{
 
     public:
-        typedef std::map<TString, std::vector<TH1*> > ShapeDic;
-        typedef std::map<TString, std::vector<float> > NormDic;
+        typedef map<TString, vector<TH1*> > ShapeDic;
+        typedef map<TString, vector<float> > NormDic;
 
         explicit Sample(const char* name, const char* input, 
                 const char* shape_sys, const char* norm_sys, const char* _path);
         virtual ~Sample();
         inline string getName(){ return this->name;}
 
-        void setChannel(RooArgSet&, const char* channelName);
+        void setChannel(RooArgSet&, const char* channelName, bool with_sys);
 
         void addShapeSys(TString& npName);
         void addNormSys(TString& npName);
@@ -43,15 +43,15 @@ class Sample{
 
     private: 
         //Data
-        std::string name;
+        string name;
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
-        std::ifstream norm_sys_file;
+        ifstream norm_sys_file;
         //following variables are Category dependent
-        std::string category_name;
+        string category_name;
         RooArgList obsList;            
-        std::string obsname;
+        string obsname;
 
         //double expected_values;  
         TH1* norm_hist;
