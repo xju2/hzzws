@@ -6,10 +6,10 @@ CXXFLAGS      = -std=c++11 -fPIC -g -O0 -Wall $(ROOTCXXFLAGS)
 
 ROOTLIBS   = $(shell root-config --libs) -lRooFitCore -lRooFit -lRooStats -lHistFactory
 
-LIBFLAGS  =  -shared -m64 $(ROOTLIBS) -rdynamic -dynamiclib
-BINFLAGS = -L./lib -lHzzws $(ROOTLIBS) -m64 -rdynamic
+LIBFLAGS  =  -shared -m64 $(ROOTLIBS) -rdynamic -dynamiclib -L/usr/local/Cellar/boost/1.55.0_2/lib
+BINFLAGS = -L./lib -lHzzws $(ROOTLIBS) -m64 -rdynamic 
 
-INCLUDES = -I.
+INCLUDES = -I. -I/usr/local/Cellar/boost/1.55.0_2/include
 
 ###################################################################################
 SILENT=
