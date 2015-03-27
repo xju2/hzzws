@@ -31,7 +31,7 @@ class Smoother{
 
         void setInFileSingle(string fname);
         void setInFileMulti(vector<string> files);
-        void smooth(string oname, string treename, RooArgSet &treeobs, string cuts, float m = 0);
+        void smooth(string oname, string treename, RooArgSet &treeobs, string cuts);
     
    private:
         float m_rho = 1.0;

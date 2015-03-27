@@ -1,13 +1,13 @@
 #!/bin/bash
 
-### Make necessary folders
-if [ ! -d obj ]; then mkdir obj; fi
-if [ ! -d lib ]; then mkdir lib; fi
-if [ ! -d "test-bin" ]; then mkdir "test-bin"; fi
-if [ ! -d share ]; then mkdir share; fi
-if [ ! -d intermediates ]; then mkdir intermediates; fi
-
 export WSDIR=/afs/cern.ch/work/l/lkaplan/workarea/hzzws
+
+### Make necessary folders
+if [ ! -d $WSDIR/obj ]; then mkdir $WSDIR/obj; fi
+if [ ! -d $WSDIR/lib ]; then mkdir $WSDIR/lib; fi
+if [ ! -d "$WSDIR/test-bin" ]; then mkdir "$WSDIR/test-bin"; fi
+if [ ! -d $WSDIR/share ]; then mkdir $WSDIR/share; fi
+if [ ! -d $WSDIR/intermediates ]; then mkdir $WSDIR/intermediates; fi
 
 . /afs/cern.ch/atlas/project/HSG7/root/current/x86_64-slc6-gcc48/setup.sh 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./lib

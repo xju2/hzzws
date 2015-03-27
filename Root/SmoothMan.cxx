@@ -11,7 +11,6 @@
 // 
 // =====================================================================================
 #include "Hzzws/SmoothMan.h"
-#include "Hzzws/Smoother.h"
 
 using namespace std;
 
@@ -87,142 +86,117 @@ void SmoothMan::process() {
 
     vector<string> signals = parser(m_dic["main"]["signals"], ',');
     vector<string> backgrounds = parser(m_dic["main"]["backgrounds"], ',');
-    vector<string> categories = parser(m_dic["main"]["categories"], ',');
 
-    // Signals
-    cout << "Smoothing signals." << endl;
-    for (auto &s : signals) {
-        if (!(m_dic["main"].count(s))) {
-            cout << "No signal " << s << " defined, skipping." << endl;
+    vector<string> allsamples;
+    for (auto &s : signals) allsamples.push_back(s);
+    for (auto &b : backgrounds) allsamples.push_back(b);
+
+    cout << "Smoothing samples." << endl;
+    for (auto &sample : allsamples) {
+        if (!(m_dic["main"].count(sample))) {
+            cout << "No sample " << sample << " defined, skipping." << endl;
             continue;
         }
-        cout << "Signal: " << s << endl;
+        cout << "Sample: " << sample << endl;
 
-        string outname = outputname + "_" + s;
+        if (find(signals.begin(), signals.end(), sample) != signals.end() && find(backgrounds.begin(), backgrounds.end(), sample) != backgrounds.end()) {
+            cout << "Sample listed in both signals and backgrounds, skipping." << endl;
+            continue;
+        }
 
-        vector<string> props = parser(m_dic["main"][s], ',');
+        string outname = outputname + "_" + sample;
+
+        vector<string> props = parser(m_dic["main"][sample], ',');
         float rho = atof(props[1].c_str());
 
         string inf = string(getenv("WSDIR")) + "/share/" + props[0];
         ifstream f(inf.c_str(), ifstream::in);
         string l;
-        while (getline(f, l)) {
-            vector<string> p = parser(l, ' ');
-            cout << "File: " << p[0] << endl;
 
-            float m = atof(p[1].c_str());
+        if (find(signals.begin(), signals.end(), sample) != signals.end()) {
+            while (getline(f, l)) {
+                vector<string> p = parser(l, ' ');
+                cout << "File: " << p[0] << endl;
 
-            outname = Form("%s_%d", outname.c_str(), (int) m);
-            Smoother *sm = new Smoother(outname, rho);
-            sm->setInFileSingle(p[0]);
+                outname = outname + "_" + p[1];
+                Smoother *sm = new Smoother(outname, rho);
+                sm->setInFileSingle(p[0]);
 
-            for (auto &c : categories) {
-                if (!(m_dic.count(c))) {
-                    cout << "No category " << c << " defined, skipping." << endl;
-                    continue;
-                }
-                cout << "Category: " << c << endl;
+                processSmoother(sm);
 
-                string oname;
-
-                string cut = m_dic[c]["cut"];
-                string treename = m_dic[c]["treename"];
-
-                vector<string> branches = parser(m_dic[c]["branch"], ',');
-                vector<string> obs = parser(m_dic[c]["observables"], ',');
-                if (branches.size() % 4 != 0) {
-                    cout << "Wrong number of parameters for observable, skipping." << endl;
-                    continue;
-                }
-                if (branches.size() / 4 != obs.size()) {
-                    cout << "Mismatch between branches and observables, skipping." << endl;
-                    continue;
-                }
-                RooArgSet treeobs;
-                for (int i = 0; i < (int) branches.size() / 4; i++) {
-                    string obsname = branches[i];
-                    int obsbins = atoi(branches[i + 1].c_str());
-                    float obslow = atof(branches[i + 2].c_str());
-                    float obshigh = atof(branches[i + 3].c_str());
-                    RooRealVar *v = new RooRealVar(obsname.c_str(), obsname.c_str(), obslow, obshigh);
-                    v->setBins(obsbins);
-                    treeobs.add(*v);
-                    oname += obs[i] + "_";
-                }
-                
-                oname += c;
-
-                sm->smooth(oname, treename, treeobs, cut, m);
+                delete sm;
             }
+            f.close();
+        }
+        else {
+            vector<string> files;
+            while (getline(f, l)) {
+                files.push_back(l);
+            }
+            f.close();
+            
+            Smoother *sm = new Smoother(outname, rho);
+            sm->setInFileMulti(files);
+
+            processSmoother(sm);
+
             delete sm;
         }
-        f.close();
     }
-    
-    // Backgrounds
-    cout << "Smoothing backgrounds." << endl;
-    for (auto &b : backgrounds) {
-        if (!(m_dic["main"].count(b))) {
-            cout << "No background" << b << " defined, skipping." << endl;
+}
+
+void SmoothMan::processSmoother(Smoother *sm) {
+    string oname, treename;
+    RooArgSet treeobs;
+    if (m_dic["main"].count("treename") && m_dic["main"].count("branch") && m_dic["main"].count("observables")) {
+        getObs("main", oname, treename, treeobs);
+    }
+
+    vector<string> categories = parser(m_dic["main"]["categories"], ',');
+    for (auto &c : categories) {
+        if (!(m_dic.count(c))) {
+            cout << "No category " << c << " defined, skipping." << endl;
             continue;
         }
-        cout << "Background: " << b << endl;
+        cout << "Category: " << c << endl;
 
-        string outname = outputname + "_" + b;
-
-        vector<string> props = parser(m_dic["main"][b], ',');
-        float rho = atof(props[1].c_str());
-        Smoother *sm = new Smoother(outname, rho);
-
-        string inf = string(getenv("WSDIR")) + "/share/" + props[0];
-        ifstream f(inf.c_str(), ifstream::in);
-        string l;
-        vector<string> files;
-        while (getline(f, l)) {
-            files.push_back(l);
+        string cut = m_dic[c]["cut"];
+        
+        if (m_dic[c].count("treename") && m_dic[c].count("branch") && m_dic[c].count("observables")) {
+            string onametemp, treenametemp;
+            RooArgSet treeobstemp;
+            getObs(c, onametemp, treenametemp, treeobstemp);
+            sm->smooth(onametemp + c, treenametemp, treeobstemp, cut);
         }
-        sm->setInFileMulti(files);
-
-        for (auto &c : categories) {
-            if (!(m_dic.count(c))) {
-                cout << "No category " << c << " defined, skipping." << endl;
-                continue;
-            }
-            cout << "Category: " << c << endl;
-
-            string oname;
-
-            string cut = m_dic[c]["cut"];
-            string treename = m_dic[c]["treename"];
-
-            vector<string> branches = parser(m_dic[c]["branch"], ',');
-            vector<string> obs = parser(m_dic[c]["observables"], ',');
-            if (branches.size() % 4 != 0) {
-                cout << "Wrong number of parameters for observable, skipping." << endl;
-                continue;
-            }
-            if (branches.size() / 4 != obs.size()) {
-                cout << "Mismatch between branches and observables, skipping." << endl;
-                continue;
-            }
-            RooArgSet treeobs;
-            for (int i = 0; i < (int) branches.size() / 4; i++) {
-                string obsname = branches[i];
-                int obsbins = atoi(branches[i + 1].c_str());
-                float obslow = atof(branches[i + 2].c_str());
-                float obshigh = atof(branches[i + 3].c_str());
-                RooRealVar *v = new RooRealVar(obsname.c_str(), obsname.c_str(), obslow, obshigh);
-                v->setBins(obsbins);
-                treeobs.add(*v);
-                oname += obs[i] + "_";
-            }
-
-            oname += c;
-
-            sm->smooth(oname, treename, treeobs, cut);
+        else {
+            sm->smooth(oname + c, treename, treeobs, cut);
         }
-        f.close();
-        delete sm;
+    }
+}
+
+void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &treeobs) {
+    treename = m_dic[cat]["treename"];
+
+    vector<string> branches = parser(m_dic[cat]["branch"], ',');
+    vector<string> obs = parser(m_dic[cat]["observables"], ',');
+    if (branches.size() % 4 != 0) {
+        cout << "Wrong number of parameters for observable, skipping." << endl;
+        return;
+    }
+    if (branches.size() / 4 != obs.size()) {
+        cout << "Mismatch between branches and observables, skipping." << endl;
+        return;
+    }
+    
+    for (int i = 0; i < (int) branches.size() / 4; i++) {
+        string obsname = branches[i];
+        int obsbins = atoi(branches[i + 1].c_str());
+        float obslow = atof(branches[i + 2].c_str());
+        float obshigh = atof(branches[i + 3].c_str());
+        RooRealVar *v = new RooRealVar(obsname.c_str(), obsname.c_str(), obslow, obshigh);
+        v->setBins(obsbins);
+        treeobs.add(*v);
+        oname += obs[i] + "_";
     }
 }
 

@@ -22,9 +22,12 @@
 #include <sstream>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+#include <algorithm>
 
 #include "RooRealVar.h"
 #include "RooArgSet.h"
+
+#include "Hzzws/Smoother.h"
 
 using namespace std;
 
@@ -37,6 +40,8 @@ class SmoothMan{
         void printDic(map<string, map<string, string> > &dic);
 
         void process();
+        void processSmoother(Smoother *sm);
+        void getObs(string cat, string &oname, string &treename, RooArgSet &treeobs); 
 
     private:
         map<string, map<string, string> > m_dic;

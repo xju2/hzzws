@@ -39,22 +39,24 @@ Smoother::~Smoother() {
 
 void Smoother::setInFileSingle(string fname) {
     if (infile->IsOpen()) infile->Close();
+    m_files.clear();
     infile = TFile::Open(fname.c_str(), "read");
 }
 
 void Smoother::setInFileMulti(vector<string> files) {
     if (infile->IsOpen()) infile->Close();
+    m_files.clear();
     m_files = files;
 }
 
-void Smoother::smooth(string oname, string treename, RooArgSet &treeobs, string cut, float m) {
-    if (!infile->IsOpen() && m != 0) {
-        cout << "Invalid file!" << endl;
+void Smoother::smooth(string oname, string treename, RooArgSet &treeobs, string cut) {
+    if (!infile->IsOpen() && m_files.size() == 0) {
+        cout << "Error! No input file(s) specified!" << endl;
         return;
     }
 
     TTree *tcut = new TTree();
-    if (m == 0) {
+    if (m_files.size() != 0) {
         TChain *chain = new TChain(treename.c_str());
         for (auto &f : m_files) {
             chain->AddFile(f.c_str());
