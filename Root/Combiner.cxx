@@ -18,7 +18,8 @@
 
 Combiner::Combiner(const char* _name, const char* _configName):
     m_name(_name),
-    simpdf_name("simPdf")
+    simpdf_name("simPdf"),
+    mainSectionName("main")
 {
     cout<<" name: "<< m_name << endl;
     readConfig(_configName);
@@ -69,7 +70,7 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     string file_path = "./";
     try{
-        file_path = all_dic.at("jobs").at("fileDir");
+        file_path = all_dic.at(mainSectionName).at("fileDir");
     }catch(const out_of_range& oor){
         //do nothing
     }
@@ -86,7 +87,7 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     //load systematics
     ///////////////////////////////////
-    auto& job_dic = all_dic.at("jobs");
+    auto& job_dic = all_dic.at(mainSectionName);
     try{
         string NP_list = job_dic.at("NPlist") ;
         sysMan = new SystematicsManager(NP_list.c_str());
@@ -97,7 +98,7 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     //add observable  (not for 2D yet)
     ///////////////////////////////////
-    string obs_str = all_dic.at("jobs")["observable"];
+    string obs_str = all_dic.at(mainSectionName)["observable"];
     
     char delim = ',';
     auto* obsPara = tokenizeString(obs_str, delim);
@@ -113,7 +114,7 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     //add categories
     ///////////////////////////////////
-    istringstream iss_cat( all_dic.at("jobs")["categories"]);
+    istringstream iss_cat( all_dic.at(mainSectionName)["categories"]);
     string category_name;
     RooCategory channelCat("channelCat", "channelCat");
     map<string, RooAbsPdf*> pdfMap;
@@ -188,9 +189,8 @@ string Combiner::findCategoryConfig(string& cat_name, const char* name)
     try{
         token = all_dic.at(cat_name).at(name);
     }catch(const out_of_range& orr){ 
-        //not defined in category, search in jobs
         try{
-            token = all_dic.at("jobs").at(name);
+            token = all_dic.at(mainSectionName).at(name);
         }catch(const out_of_range& orr){
             cerr << "ERROR (Combiner::findCategoryConfig) : no |" << name << "| found in |" << cat_name << "|" << endl;
             return "";

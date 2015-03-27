@@ -19,6 +19,7 @@ class Combiner{
     private:
         TString m_name;
         string simpdf_name;
+        string mainSectionName;
         map<string, map<string, string> > all_dic;
 
         //TFile* data_file; //TODO
