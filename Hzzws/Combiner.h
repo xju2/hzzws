@@ -16,6 +16,12 @@
 #include <map>
 using namespace std;
 class Combiner{
+    
+    public:
+        explicit Combiner(const char* _name, const char* _configName);
+        void combine();
+        virtual ~Combiner();
+
     private:
         TString m_name;
         string simpdf_name;
@@ -30,21 +36,9 @@ class Combiner{
 
         string findCategoryConfig(string& cat_name, const char* name);
         Sample* getSample(string& name);
-        ////////////////////////
-        //tokenize the string with specific delimeter. 
-        //!!Don't forget delete the returned vector<string>*!!
-        ////////////////////////
-        vector<string>* tokenizeString(string& str, char delim);
-        void printDic();
 
         // read the overall configurations
         void readConfig(const char* _name);
         void configWorkspace(RooWorkspace* ws);
-    
-    public:
-        explicit Combiner(const char* _name, const char* _configName);
-        void combine();
-        virtual ~Combiner();
-
 };
 #endif

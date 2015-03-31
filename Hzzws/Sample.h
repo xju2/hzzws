@@ -36,45 +36,45 @@ class Sample{
 
         bool addShapeSys(TString& npName);
         bool addNormSys(TString& npName);
-        void addMu(RooArgList& prodSet);
         
         //derivate class may want their implemations
         virtual RooAbsPdf* getPDF();
         virtual RooAbsReal*  getCoeff();
 
     private: 
-        //Data
-        string name;
-        string nickname;
+        
+        string name; // used to construct PDF
+        string nickname; // used to name mu, i.e. POI
         bool is_signal;
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
         ifstream norm_sys_file;
+        //////////////////////////////////////// 
         //following variables are Category dependent
+        //////////////////////////////////////// 
         string category_name;
         RooArgList obsList;            
         string obsname;
 
-        //double expected_values;  
-        TH1* norm_hist;
-        // systematics dictionary for the channel
-        ShapeDic shapes_dic;
-        NormDic norms_dic;
+        TH1* norm_hist; // norminal histogram
         // PDF sys
+        ShapeDic shapes_dic;
         vector<pair<RooAbsPdf*, RooAbsPdf*> > sysPdfs;
         vector<string> paramNames;
-        // constraint
-        RooArgSet* np_constraint;
         // yields sys
+        NormDic norms_dic;
         vector<double> lowValues;
         vector<double> highValues;
         RooArgList np_vars;
+        // constraint
+        RooArgSet* np_constraint;
 
 
         //fuctions
         RooHistPdf* makeHistPdf(TH1*);
         double getExpectedValue();
+        void addMu(RooArgList& prodSet);
         void getShapeSys();
         void getNormSys();
 };

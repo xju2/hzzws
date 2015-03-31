@@ -12,7 +12,15 @@
 // =====================================================================================
 #include "Hzzws/SmoothMan.h"
 
-using namespace std;
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <boost/algorithm/string.hpp>
+#include <algorithm>
+
+#include "RooRealVar.h"
+
+#include "Hzzws/Helper.h"
 
 SmoothMan::SmoothMan(const char *configFile) {
     readConfig(configFile);
@@ -23,69 +31,18 @@ SmoothMan::~SmoothMan() {
 }
 
 void SmoothMan::readConfig(const char *configFile) {
-    ifstream file(configFile, ifstream::in);
-    string line;
-    map<string, map<string, string> > all_dic;
-    int lineCount = 0;
-    map<string, string> section_dic;
-    string section_name;
-    while (getline(file, line)) {
-        if (line[0] == '[') {
-            if (lineCount < 1) {
-                section_name = string(line.begin() + 1, line.end() - 1);
-            }
-            else {
-                all_dic[section_name] = section_dic;
-                section_dic.clear();
-                section_name = string(line.begin() + 1, line.end() - 1);
-            }
-        }
-        else {
-            if (line.find("(") != string::npos) {
-                int pose = line.find("=");
-                int posf = line.find("(");
-                int posl = line.rfind(")");
-                string tagName = line.substr(0, pose);
-                string token = line.substr(posf + 1, posl - posf - 1);
-                boost::algorithm::trim(tagName);
-                boost::algorithm::trim(token);
-                section_dic[tagName] = token;
-            }
-            else {
-                istringstream iss(line);
-                string tagName;
-                if(getline(iss, tagName, '=')){
-                    string token;
-                    getline(iss, token,'=');
-                    boost::algorithm::trim(tagName);
-                    boost::algorithm::trim(token);
-                    section_dic[tagName] = token;
-                }
-            }
-        }
-        lineCount++;
-    }
-    all_dic[section_name] = section_dic;
-    m_dic = all_dic;
-    printDic(m_dic);
-    file.close();
-}
-
-void SmoothMan::printDic(map<string, map<string, string> > &dic) {
-    for (auto &kv : dic) {
-        cout << "section: " << kv.first << endl;
-        for (auto &sec : kv.second) {
-            cout<< "\t " << sec.first <<" = " << sec.second <<endl;
-        }
-    }
+    Helper::readConfig(configFile, '=', m_dic);
+    Helper::printDic(m_dic);
 }
 
 void SmoothMan::process() {
     string filedir = m_dic["main"]["filedir"];
     string outputname = m_dic["main"]["outputname"];
 
-    vector<string> signals = parser(m_dic["main"]["signals"], ',');
-    vector<string> backgrounds = parser(m_dic["main"]["backgrounds"], ',');
+    vector<string> signals;
+    Helper::tokenizeString(m_dic["main"]["signals"], ',', signals);
+    vector<string> backgrounds;
+    Helper::tokenizeString(m_dic["main"]["backgrounds"], ',', backgrounds);
 
     vector<string> allsamples;
     for (auto &s : signals) allsamples.push_back(s);
@@ -106,7 +63,8 @@ void SmoothMan::process() {
 
         string outname = outputname + "_" + sample;
 
-        vector<string> props = parser(m_dic["main"][sample], ',');
+        vector<string> props;
+        Helper::tokenizeString(m_dic["main"][sample], ',', props);
         float rho = atof(props[1].c_str());
 
         string inf = string(getenv("WSDIR")) + "/share/" + props[0];
@@ -115,7 +73,8 @@ void SmoothMan::process() {
 
         if (find(signals.begin(), signals.end(), sample) != signals.end()) {
             while (getline(f, l)) {
-                vector<string> p = parser(l, ' ');
+                vector<string> p;
+                Helper::tokenizeString(l, ' ', p);
                 cout << "File: " << p[0] << endl;
 
                 outname = outname + "_" + p[1];
@@ -152,7 +111,8 @@ void SmoothMan::processSmoother(Smoother *sm) {
         getObs("main", oname, treename, treeobs);
     }
 
-    vector<string> categories = parser(m_dic["main"]["categories"], ',');
+    vector<string> categories;
+    Helper::tokenizeString(m_dic["main"]["categories"], ',', categories);
     for (auto &c : categories) {
         if (!(m_dic.count(c))) {
             cout << "No category " << c << " defined, skipping." << endl;
@@ -177,8 +137,10 @@ void SmoothMan::processSmoother(Smoother *sm) {
 void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &treeobs) {
     treename = m_dic[cat]["treename"];
 
-    vector<string> branches = parser(m_dic[cat]["branch"], ',');
-    vector<string> obs = parser(m_dic[cat]["observables"], ',');
+    vector<string> branches;  
+    Helper::tokenizeString(m_dic[cat]["branch"], ',', branches);
+    vector<string> obs;
+    Helper::tokenizeString(m_dic[cat]["observables"], ',', obs);
     if (branches.size() % 4 != 0) {
         cout << "Wrong number of parameters for observable, skipping." << endl;
         return;
@@ -200,15 +162,3 @@ void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &t
     }
 }
 
-vector<string> SmoothMan::parser(string s, char d) {
-    vector<string> vals;
-
-    istringstream stream(s);
-    string c;
-    while (getline(stream, c, d)) {
-        boost::algorithm::trim(c);
-        vals.push_back(c);
-    }
-
-    return vals;
-}

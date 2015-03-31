@@ -1,33 +1,16 @@
-// =====================================================================================
-// 
-//       Filename:  SmoothMan.h
 // 
 //    Description:  do the smooth job
 // 
-//        Version:  1.0
-//        Created:  03/13/2015 18:17:18
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
-#ifndef __SMOOTHMAN_H__
-#define __SMOOTHMAN_H__
-#include <string>
-#include <map>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <boost/algorithm/string.hpp>
-#include <algorithm>
-
-#include "RooRealVar.h"
-#include "RooArgSet.h"
+#ifndef _HZZWS_SMOOTHMAN_H_
+#define _HZZWS_SMOOTHMAN_H_
 
 #include "Hzzws/Smoother.h"
+#include <string>
+#include <map>
+#include <vector>
+
+#include "RooArgSet.h"
+
 
 using namespace std;
 
@@ -37,7 +20,6 @@ class SmoothMan{
         virtual ~SmoothMan();
 
         void readConfig(const char *configFile);
-        void printDic(map<string, map<string, string> > &dic);
 
         void process();
         void processSmoother(Smoother *sm);
@@ -45,8 +27,5 @@ class SmoothMan{
 
     private:
         map<string, map<string, string> > m_dic;
-
-        vector<string> parser(string s, char d);
-         
 };
 #endif

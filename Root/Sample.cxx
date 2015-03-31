@@ -111,7 +111,6 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
         // get normalization sys dictionary
         this ->getNormSys();
     }
-
 }
 
 void Sample::getShapeSys(){
