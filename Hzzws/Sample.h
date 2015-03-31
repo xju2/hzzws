@@ -2,7 +2,7 @@
 //    Description:  @name, name of the sample
 //                  @hist_files,  root file contains smoothed histograms
 //                  @shape_files, root file contains shape variations
-//                  @norm_sys_file,  text file contains normalize sys
+//                  @all_norm_dic,  dictionary contains normalization uncertainties
 // 
 #ifndef __HZZWS_SAMPLE_H__
 #define __HZZWS_SAMPLE_H__
@@ -25,7 +25,7 @@ class Sample{
 
     public:
         typedef map<TString, vector<TH1*> > ShapeDic;
-        typedef map<TString, vector<float> > NormDic;
+        typedef map<TString, vector<float> >  NormDic;
 
         explicit Sample(const char* name, const char* nickname, const char* input, 
                 const char* shape_sys, const char* norm_sys, const char* _path);
@@ -49,7 +49,8 @@ class Sample{
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
-        ifstream norm_sys_file;
+        map<string, map<string, string> > all_norm_dic;
+
         //////////////////////////////////////// 
         //following variables are Category dependent
         //////////////////////////////////////// 

@@ -5,6 +5,7 @@
 // ==========================================================================
 #include "Hzzws/Sample.h"
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 #include <RooDataHist.h>
@@ -13,6 +14,8 @@
 #include <RooArgList.h>
 #include <RooRealVar.h>
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
+
+#include "Hzzws/Helper.h"
 
 Sample::Sample(const char* _name, 
         const char* _nickname,
@@ -25,7 +28,7 @@ Sample::Sample(const char* _name,
 {
     hist_files = TFile::Open(Form("%s/%s", _path, _input), "read");
     shape_files = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
-    norm_sys_file.open(Form("%s/%s", _path, _norm_sys), ifstream::in);
+    Helper::readConfig(Form("%s/%s", _path, _norm_sys), '=', all_norm_dic);
     if(name.find("Signal") != string::npos) is_signal = true;
     else is_signal = false;
 
@@ -165,16 +168,20 @@ void Sample::getShapeSys(){
 }
 
 void Sample::getNormSys(){
-    //TODO specific normalization systematics for each category!!!
-    if (norms_dic.size() > 0) return;
-    if(!norm_sys_file.good()) return;
-    TString name;
-    float low_value, high_value;
-    while (norm_sys_file >> name >> low_value >> high_value){
-        vector<float>  norm_sys;
-        norm_sys.push_back(low_value);
-        norm_sys.push_back(high_value);
-        norms_dic[name] = norm_sys;
+    norms_dic.clear();
+    for (auto& sec : all_norm_dic){
+        if (sec.first.compare(category_name) == 0) {
+            for (auto& npName : sec.second) {
+                istringstream iss(npName.second);
+                float low_value, high_value;
+                iss >> low_value >> high_value ;
+                vector<float>  norm_sys;
+                norm_sys.push_back(low_value);
+                norm_sys.push_back(high_value);
+                TString _name(npName.first);
+                norms_dic[_name] = norm_sys;
+            }
+        }
     }
     cout << norms_dic.size() <<" normalization systematics added!" << endl;
 }
