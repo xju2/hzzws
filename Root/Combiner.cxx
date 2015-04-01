@@ -51,13 +51,12 @@ void Combiner::readConfig(const char* configName){
     try{
         file_path = all_dic.at(mainSectionName).at("fileDir");
     }catch(const out_of_range& oor){
-        //do nothing
+        cout << "'fileDir' not specific, look in current directory" << endl;
     }
     for(auto& sample : all_dic.at("samples")){
-        char delim = ',';
         cout << sample.second << endl;
         vector<string> tokens;
-        Helper::tokenizeString(sample.second, delim, tokens);
+        Helper::tokenizeString(sample.second, ',', tokens);
         // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name;
         allSamples[sample.first] = new Sample(tokens.at(3).c_str(), sample.first.c_str(), 
                 tokens.at(0).c_str(), tokens.at(1).c_str(), tokens.at(2).c_str(), file_path.c_str());
@@ -117,6 +116,7 @@ void Combiner::readConfig(const char* configName){
 
         string catName(Form("%sCat",category_name.c_str()));
         channelCat.defineType(catName.c_str(), catIndex++);
+        // Category will sum individual sample's pdf and add constraint term
         RooAbsPdf* final_pdf = category ->getPDF();
         string final_pdf_name(final_pdf->GetName()); 
         workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());

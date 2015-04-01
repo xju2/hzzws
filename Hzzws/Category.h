@@ -33,7 +33,7 @@ class Category {
  private:
 
   string m_label;
-  bool is_2D ;
+  // bool is_2D ; // TODO
   RooArgSet obs ;
   set<TString> nps_set;
 
@@ -41,7 +41,7 @@ class Category {
   RooArgList coefList;
   RooArgList constraintList; 
 
-  void gaussianConstraint();
+  void addGaussianConstraint();
 };
 
 #endif 

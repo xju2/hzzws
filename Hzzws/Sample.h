@@ -17,6 +17,7 @@
 #include <RooArgList.h>
 #include <RooProduct.h>
 #include <RooAbsReal.h>
+#include <RooStarMomentMorph.h>
 
 #include <fstream>
 #include <map>
@@ -60,6 +61,7 @@ class Sample{
 
         TH1* norm_hist; // norminal histogram
         // PDF sys
+        RooAbsPdf* norm_pdf;
         ShapeDic shapes_dic;
         vector<pair<RooAbsPdf*, RooAbsPdf*> > sysPdfs;
         vector<string> paramNames;
@@ -78,5 +80,8 @@ class Sample{
         void addMu(RooArgList& prodSet);
         void getShapeSys();
         void getNormSys();
+
+        RooRealVar* createNuisanceVar(const char* npName);
+        RooStarMomentMorph* getRooStarMomentMorph(const string& outputName);
 };
 #endif

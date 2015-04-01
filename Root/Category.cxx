@@ -27,7 +27,8 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
     vector<TString>* nps = NULL;
     if(with_sys) {
         nps = sysMan->add_sys(sample);
-        if (nps != NULL && nps ->size() > 0){
+        if (nps != NULL && nps ->size() > 0)
+        {
             for(auto& _np : *nps){
                 nps_set.insert( _np );
             }
@@ -51,7 +52,8 @@ void Category::setObservables(RooArgSet& _obs)
 RooAbsPdf* Category::getPDF(){
     TString pdfname( Form( "modelunc_%s", m_label.c_str() ) );
     RooAddPdf* sum_pdf = new RooAddPdf(pdfname.Data(), pdfname.Data(), pdfList, coefList);
-    this->gaussianConstraint(); 
+    // add gaussian constraint
+    this->addGaussianConstraint(); 
     constraintList.add(*sum_pdf);
 
     TString modelname( Form( "model_%s", m_label.c_str() ) );
@@ -59,7 +61,7 @@ RooAbsPdf* Category::getPDF(){
     return prod_pdf;
 }
 
-void Category::gaussianConstraint(){
+void Category::addGaussianConstraint(){
     auto* sigma = new RooRealVar("sigma", "sigma", 1.0);
     for(auto& np : nps_set){
         string _name(Form("nom_%s", np.Data()));

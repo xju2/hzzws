@@ -228,8 +228,7 @@ bool Sample::addNormSys(TString& npName){
     }catch(const out_of_range& oor){
         return false;
     }
-    TString npVarName(Form("alpha_%s",npName.Data()));
-    RooRealVar* npVar = new RooRealVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
+    RooRealVar* npVar = this->createNuisanceVar(npName.Data());
     np_vars.add(*npVar);
     lowValues.push_back(norm_varies ->at(0));
     highValues.push_back(norm_varies->at(1));
@@ -237,15 +236,14 @@ bool Sample::addNormSys(TString& npName){
 }
 
 RooAbsPdf* Sample::getPDF(){
-    // todo
-    RooHistPdf* norm_pdf = this->makeHistPdf(this->norm_hist);
+    norm_pdf = this->makeHistPdf(this->norm_hist);
     if(paramNames.size() < 1) // no shape systematics
     {
         return  norm_pdf;
     }else{
         string pdfname(Form("%s_withSys", norm_pdf->GetName()));
-        return norm_pdf;
-        //RooStarMomentMorph* morph = RooStarMomentMorph(pdfname.c_str(), norm_pdf, sysPdfs, paramNames, 
+        RooStarMomentMorph* morph = this->getRooStarMomentMorph(pdfname);
+        return morph;
     }
 }
 
@@ -276,4 +274,50 @@ void Sample::addMu(RooArgList& prodSet)
     RooRealVar* mu_sample = new RooRealVar(mu_name.c_str(), mu_name.c_str(), 1.0, -30, 30);
     prodSet.add(*mu);
     prodSet.add(*mu_sample);
+}
+RooStarMomentMorph* Sample::getRooStarMomentMorph(const string& outputName)
+{
+    if (sysPdfs.size() != paramNames.size()) {
+        cerr << "problem with inputs!  sysPdfs.size()=" <<
+            sysPdfs.size() << ", paramNames.size()=" << paramNames.size() << endl;
+    }
+
+    RooArgList pdfList, parList;
+    vector<int> nnuispoints;
+    vector<double> nrefpoints;
+
+    for (int isys=0; isys < (int)sysPdfs.size(); isys++) 
+    {
+        if (sysPdfs[isys].first==0 || sysPdfs[isys].second==0) {
+            cout << "pdf for " << paramNames[isys] << " missing!" << endl;
+        }
+
+        pdfList.add(*sysPdfs[isys].first);
+        nrefpoints.push_back(-1.);
+
+        pdfList.add(*sysPdfs[isys].second);
+        nrefpoints.push_back(1.);
+
+        // number variations
+        nnuispoints.push_back(2);
+
+        RooRealVar* var = createNuisanceVar(paramNames.at(isys).c_str());
+        parList.add(*var);
+    }
+    pdfList.add(*nomPdf);
+
+    // make RooStarMomentMorph
+    RooStarMomentMorph tmpmorph(outputName.c_str(), outputName.c_str(),
+            parList, obsList, pdfList, nnuispoints, nrefpoints,
+            RooStarMomentMorph::Linear);
+    tmpmorph.useHorizontalMorphing(false);
+    // TODO: Add bin by bin scale factor?
+    return tmporph;
+}
+
+RooRealVar* Sample::createNuisanceVar(const char* npName)
+{
+    TString npVarName(Form("alpha_%s",npName));
+    RooRealVar* npVar = new RooRealVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
+    return npVar;
 }
