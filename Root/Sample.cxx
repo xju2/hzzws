@@ -14,6 +14,8 @@
 #include <RooArgList.h>
 #include <RooRealVar.h>
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
+#include "RooExpandedDataHist.h"
+#include "RooExpandedHistPdf.h"
 
 #include "Hzzws/Helper.h"
 
@@ -22,7 +24,8 @@ Sample::Sample(const char* _name,
         const char* _input,  
         const char* _shape_sys, 
         const char* _norm_sys,
-        const char* _path):
+        const char* _path
+        ):
     name(_name),
     nickname(_nickname)
 {
@@ -32,23 +35,28 @@ Sample::Sample(const char* _name,
     if(name.find("Signal") != string::npos) is_signal = true;
     else is_signal = false;
 
-    np_constraint = NULL;
     norm_hist = NULL;
+    useMCC = false;
 }
 
 Sample::~Sample(){
 
 }
 
-RooHistPdf* Sample::makeHistPdf(TH1* hist)
+RooAbsPdf* Sample::makeHistPdf(TH1* hist)
 {
-    if(hist){
-        RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist",hist->GetName()), "datahist",  this->obsList, hist);
-        string pdfname(Form("%s_%s", baseName.Data(), obsname.c_str()));
-        RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), "histpdf", this->obsList, *datahist, 3);
+    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist",hist->GetName()), "datahist",  this->obsList, hist);
+    string pdfname(Form("%s_%s", baseName.Data(), obsname.c_str()));
+    if (!useMCC) {
+        RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
+                this->obsList, *datahist, 3);
         return histpdf;
-    }else{
-        return NULL;
+    }
+    else {
+        auto* expandDataHist = new RooExpandedDataHist(*datahist, Form("%s_EDH",hist->GetName()));
+        auto* histpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
+                obsList, *expandDataHist, 3);
+        return histpdf;
     }
 }
 
@@ -215,8 +223,8 @@ bool Sample::addShapeSys(TString& npName){
         cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: "<< shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
-    RooHistPdf* histUpPDF   = this->makeHistPdf(histUp);
-    RooHistPdf* histDownPDF = this->makeHistPdf(histDown);
+    RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp);
+    RooAbsPdf* histDownPDF = this->makeHistPdf(histDown);
     sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
     return true;
 }
@@ -228,7 +236,7 @@ bool Sample::addNormSys(TString& npName){
     }catch(const out_of_range& oor){
         return false;
     }
-    RooRealVar* npVar = this->createNuisanceVar(npName.Data());
+    RooRealVar* npVar = Helper::createNuisanceVar(npName.Data());
     np_vars.add(*npVar);
     lowValues.push_back(norm_varies ->at(0));
     highValues.push_back(norm_varies->at(1));
@@ -242,7 +250,7 @@ RooAbsPdf* Sample::getPDF(){
         return  norm_pdf;
     }else{
         string pdfname(Form("%s_withSys", norm_pdf->GetName()));
-        RooStarMomentMorph* morph = this->getRooStarMomentMorph(pdfname);
+        RooStarMomentMorph* morph = this->createRooStarMomentMorph(pdfname);
         return morph;
     }
 }
@@ -270,14 +278,15 @@ RooAbsReal* Sample::getCoeff(){
 void Sample::addMu(RooArgList& prodSet)
 {
     RooRealVar* mu = new RooRealVar("mu", "mu", 1.0, -30., 30);
-    string mu_name(Form("mu_%s", nickname.c_str()));
+    string mu_name(Form("mu_%s", this->nickname.c_str()));
     RooRealVar* mu_sample = new RooRealVar(mu_name.c_str(), mu_name.c_str(), 1.0, -30, 30);
     prodSet.add(*mu);
     prodSet.add(*mu_sample);
 }
-RooStarMomentMorph* Sample::getRooStarMomentMorph(const string& outputName)
+
+RooStarMomentMorph* Sample::createRooStarMomentMorph(const string& outputName)
 {
-    if (sysPdfs.size() != paramNames.size()) {
+    if (this->sysPdfs.size() != this->paramNames.size()) {
         cerr << "problem with inputs!  sysPdfs.size()=" <<
             sysPdfs.size() << ", paramNames.size()=" << paramNames.size() << endl;
     }
@@ -286,7 +295,7 @@ RooStarMomentMorph* Sample::getRooStarMomentMorph(const string& outputName)
     vector<int> nnuispoints;
     vector<double> nrefpoints;
 
-    for (int isys=0; isys < (int)sysPdfs.size(); isys++) 
+    for (int isys = 0; isys < (int)sysPdfs.size(); isys++) 
     {
         if (sysPdfs[isys].first==0 || sysPdfs[isys].second==0) {
             cout << "pdf for " << paramNames[isys] << " missing!" << endl;
@@ -301,23 +310,31 @@ RooStarMomentMorph* Sample::getRooStarMomentMorph(const string& outputName)
         // number variations
         nnuispoints.push_back(2);
 
-        RooRealVar* var = createNuisanceVar(paramNames.at(isys).c_str());
+        RooRealVar* var = Helper::createNuisanceVar(paramNames.at(isys).c_str());
         parList.add(*var);
     }
-    pdfList.add(*nomPdf);
+    pdfList.add(*(this->norm_pdf));
 
     // make RooStarMomentMorph
-    RooStarMomentMorph tmpmorph(outputName.c_str(), outputName.c_str(),
+    auto* tmpmorph = new RooStarMomentMorph (outputName.c_str(), outputName.c_str(),
             parList, obsList, pdfList, nnuispoints, nrefpoints,
             RooStarMomentMorph::Linear);
-    tmpmorph.useHorizontalMorphing(false);
-    // TODO: Add bin by bin scale factor?
-    return tmporph;
+    tmpmorph->useHorizontalMorphing(false);
+   
+    // add bin by bin scale factor
+    if (useMCC) {
+        // copied from WorkspaceToolBase, line 911
+        tmpmorph->setUseBinByBinScaleFactors(true);
+        auto* tmppdf = dynamic_cast<RooExpandedDataHist*>(this->norm_pdf);
+        tmppdf ->applyScaleFactor(false);
+    }
+    return tmpmorph;
 }
 
-RooRealVar* Sample::createNuisanceVar(const char* npName)
-{
-    TString npVarName(Form("alpha_%s",npName));
-    RooRealVar* npVar = new RooRealVar(npVarName.Data(), npVarName.Data(), 0.0, -5., 5.);
-    return npVar;
+string Sample::getName(){
+    return this->name;
+}
+
+void Sample::setMCC(bool flag){
+    useMCC = flag;
 }

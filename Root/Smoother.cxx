@@ -1,18 +1,3 @@
-// =====================================================================================
-// 
-//       Filename:  Smoother.cpp
-// 
-//    Description:  
-// 
-//        Version:  1.0
-//        Created:  03/13/2015 12:15:32
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #include "Hzzws/Smoother.h"
 #include <RooDataSet.h>
 #include <RooNDKeysPdf.h>

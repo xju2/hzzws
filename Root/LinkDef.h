@@ -1,18 +1,3 @@
-// =====================================================================================
-// 
-//       Filename:  LinkDef.h
-// 
-//    Description:  
-// 
-//        Version:  1.0
-//        Created:  03/16/2015 21:34:04
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #ifndef __HZZWS_LINKDEF_H__
 #define __HZZWS_LINKDEF_H__
 

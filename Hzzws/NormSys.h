@@ -1,18 +1,5 @@
-// =====================================================================================
-// 
-//       Filename:  NormSys.h
-// 
 //    Description:  normalize sys
 // 
-//        Version:  1.0
-//        Created:  03/16/2015 23:36:04
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #ifndef __HZZWS_NORMSYS_H__
 #define __HZZWS_NORMSYS_H__
 #include <TString.h>

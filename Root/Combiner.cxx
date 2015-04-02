@@ -1,6 +1,3 @@
-// 
-//    Description:  Combine each categories
-// 
 #include "Hzzws/Combiner.h"
 
 #include <fstream>
@@ -57,9 +54,13 @@ void Combiner::readConfig(const char* configName){
         cout << sample.second << endl;
         vector<string> tokens;
         Helper::tokenizeString(sample.second, ',', tokens);
-        // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name;
-        allSamples[sample.first] = new Sample(tokens.at(3).c_str(), sample.first.c_str(), 
+        // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name, 4: useMCConstraint;
+        auto* newsample = new Sample(tokens.at(3).c_str(), sample.first.c_str(), 
                 tokens.at(0).c_str(), tokens.at(1).c_str(), tokens.at(2).c_str(), file_path.c_str());
+        if (tokens.size() > 4){
+            newsample->setMCC((bool)atoi(tokens.at(4).c_str()));
+        }
+        allSamples[sample.first] = newsample;
     }
 
     ///////////////////////////////////
@@ -116,9 +117,10 @@ void Combiner::readConfig(const char* configName){
 
         string catName(Form("%sCat",category_name.c_str()));
         channelCat.defineType(catName.c_str(), catIndex++);
-        // Category will sum individual sample's pdf and add constraint term
+        // Category will sum individual sample's pdf and add constraint terms
         RooAbsPdf* final_pdf = category ->getPDF();
         string final_pdf_name(final_pdf->GetName()); 
+        // final_pdf->getVal(); // To increast the fitting speed??
         workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());
         delete category;
         pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());

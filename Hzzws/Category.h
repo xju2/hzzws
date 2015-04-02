@@ -1,3 +1,5 @@
+// TODO: add description
+//
 #ifndef __HZZWS_CATEGORY_H__
 #define __HZZWS_CATEGORY_H__
 
@@ -41,7 +43,6 @@ class Category {
   RooArgList coefList;
   RooArgList constraintList; 
 
-  void addGaussianConstraint();
 };
 
 #endif 

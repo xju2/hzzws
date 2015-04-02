@@ -61,3 +61,30 @@ void Helper::printDic( const map<string, map<string, string> >& all_dic )
         }
     }
 }
+
+RooRealVar* Helper::createNuisanceVar(const char* npName)
+{
+    string npVarName(Form("alpha_%s",npName));
+    RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -5., 5.);
+    return npVar;
+}
+
+RooRealVar* Helper::createGlobalVar(const char* npName)
+{
+    string npVarName(Form("nom_%s",npName));
+    RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -1., 1.);
+    return npVar;
+}
+
+RooAbsPdf* Helper::createConstraint(const char* npName)
+{
+    // TODO: may add other constraint functions here
+    auto* var = createNuisanceVar(npName);
+    auto* mean = createGlobalVar(npName);
+    auto* sigma = new RooRealVar("sigma", "sigma", 1.0);
+    string _pdfname(Form("alpha_%sConstraint", npName ));
+    RooGaussian* gauss = new RooGaussian(_pdfname.c_str(), _pdfname.c_str(), *var, *mean, *sigma);
+    return gauss;
+}
+
+

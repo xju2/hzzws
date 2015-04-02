@@ -31,9 +31,10 @@ class Sample{
         explicit Sample(const char* name, const char* nickname, const char* input, 
                 const char* shape_sys, const char* norm_sys, const char* _path);
         virtual ~Sample();
-        inline string getName(){ return this->name;}
+        string getName();
 
         void setChannel(RooArgSet&, const char* channelName, bool with_sys);
+        void setMCC(bool flag);
 
         bool addShapeSys(TString& npName);
         bool addNormSys(TString& npName);
@@ -41,19 +42,21 @@ class Sample{
         //derivate class may want their implemations
         virtual RooAbsPdf* getPDF();
         virtual RooAbsReal*  getCoeff();
+        
 
     private: 
         
         string name; // used to construct PDF
         string nickname; // used to name mu, i.e. POI
         bool is_signal;
+        bool useMCC; // use MCConstraint if true
         TString baseName; // name_categoryName
         TFile* hist_files;
         TFile* shape_files;
         map<string, map<string, string> > all_norm_dic;
 
         //////////////////////////////////////// 
-        //following variables are Category dependent
+        //following variables are dependent on category
         //////////////////////////////////////// 
         string category_name;
         RooArgList obsList;            
@@ -61,7 +64,7 @@ class Sample{
 
         TH1* norm_hist; // norminal histogram
         // PDF sys
-        RooAbsPdf* norm_pdf;
+        RooAbsPdf* norm_pdf; // norminal pdf
         ShapeDic shapes_dic;
         vector<pair<RooAbsPdf*, RooAbsPdf*> > sysPdfs;
         vector<string> paramNames;
@@ -71,17 +74,16 @@ class Sample{
         vector<double> highValues;
         RooArgList np_vars;
         // constraint
-        RooArgSet* np_constraint;
+        RooArgSet np_constraint;
 
 
         //fuctions
-        RooHistPdf* makeHistPdf(TH1*);
+        RooAbsPdf* makeHistPdf(TH1*);
         double getExpectedValue();
         void addMu(RooArgList& prodSet);
         void getShapeSys();
         void getNormSys();
 
-        RooRealVar* createNuisanceVar(const char* npName);
-        RooStarMomentMorph* getRooStarMomentMorph(const string& outputName);
+        RooStarMomentMorph* createRooStarMomentMorph(const string& outputName);
 };
 #endif

@@ -1,18 +1,3 @@
-// =====================================================================================
-// 
-//       Filename:  SystematicsManager.cpp
-// 
-//    Description:  
-// 
-//        Version:  1.0
-//        Created:  03/13/2015 17:21:43
-//       Revision:  none
-//       Compiler:  g++
-// 
-//         Author:  Xiangyang Ju (), xiangyang.ju@gmail.com
-//        Company:  
-// 
-// =====================================================================================
 #include "Hzzws/SystematicsManager.h"
 #include <fstream>
 using namespace std;
