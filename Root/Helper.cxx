@@ -5,7 +5,9 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
-void Helper::readConfig(const char* filename, char delim,
+namespace Helper{
+
+void readConfig(const char* filename, char delim,
         map<string, map<string, string> >& all_dic)
 {
     ifstream file(filename, ifstream::in);
@@ -42,7 +44,7 @@ void Helper::readConfig(const char* filename, char delim,
     all_dic[section_name] = section_dic;  //pick up the last section
 }
 
-void Helper::tokenizeString(const string& str, char delim, vector<string>& tokens)
+void tokenizeString(const string& str, char delim, vector<string>& tokens)
 {
     istringstream iss(str);
     string token;
@@ -52,7 +54,7 @@ void Helper::tokenizeString(const string& str, char delim, vector<string>& token
     }
 }
 
-void Helper::printDic( const map<string, map<string, string> >& all_dic )
+void printDic( const map<string, map<string, string> >& all_dic )
 {
     for(auto& kv : all_dic){
         cout << "section: |" << kv.first << "|" << endl;
@@ -62,21 +64,21 @@ void Helper::printDic( const map<string, map<string, string> >& all_dic )
     }
 }
 
-RooRealVar* Helper::createNuisanceVar(const char* npName)
+RooRealVar* createNuisanceVar(const char* npName)
 {
     string npVarName(Form("alpha_%s",npName));
     RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -5., 5.);
     return npVar;
 }
 
-RooRealVar* Helper::createGlobalVar(const char* npName)
+RooRealVar* createGlobalVar(const char* npName)
 {
     string npVarName(Form("nom_%s",npName));
     RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -1., 1.);
     return npVar;
 }
 
-RooAbsPdf* Helper::createConstraint(const char* npName)
+RooAbsPdf* createConstraint(const char* npName)
 {
     // TODO: may add other constraint functions here
     auto* var = createNuisanceVar(npName);
@@ -87,4 +89,4 @@ RooAbsPdf* Helper::createConstraint(const char* npName)
     return gauss;
 }
 
-
+}

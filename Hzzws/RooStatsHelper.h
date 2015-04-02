@@ -14,21 +14,17 @@
 
 using namespace std;
 
-class RooStatsHelper{
-  public:
-    RooStatsHelper(){}
-    virtual ~RooStatsHelper(){}
+namespace RooStatsHelper{
+     void setDefaultMinimize();
+     void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
+     void setVarFree(RooWorkspace* combined, const char* varName);
+     pair<double,double> getVarVal(RooWorkspace* w, const char* var);
 
-    static void setDefaultMinimize();
-    static void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
-    static void setVarFree(RooWorkspace* combined, const char* varName);
-    static pair<double,double> getVarVal(RooWorkspace* w, const char* var);
-
-    static int minimize(RooNLLVar* nll, RooWorkspace* combWS=NULL);
-    static RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc, 
+     int minimize(RooNLLVar* nll, RooWorkspace* combWS=NULL);
+     RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc, 
             const char* channelName);
     // Make asimov data
-    static RooDataSet* makeAsimovData(RooWorkspace* combined, 
+     RooDataSet* makeAsimovData(RooWorkspace* combined, 
             double muval, 
             double profileMu,  // used when fit data
             const char* muName, // name of POI
@@ -37,7 +33,7 @@ class RooStatsHelper{
             bool doprofile    // profile to data?
             );
     // get p0-value
-    static double getPvalue(RooWorkspace* combined, 
+     double getPvalue(RooWorkspace* combined, 
             RooAbsPdf* combPdf, 
             RooStats::ModelConfig* mc, 
             RooAbsData* data, 
@@ -46,6 +42,6 @@ class RooStatsHelper{
             const char* muName,
             bool isRatioLogLikelihood = false);
     // sqrt(2* (ln(1+s/b) - b ))
-    static double getRoughSig(double s, double b);
-};
+     double getRoughSig(double s, double b);
+}
 #endif

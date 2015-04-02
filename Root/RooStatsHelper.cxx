@@ -16,14 +16,15 @@
 
 #include "Hzzws/RooStatsHelper.h"
 
+namespace RooStatsHelper { 
 
-void RooStatsHelper::setDefaultMinimize(){
+void setDefaultMinimize(){
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
   ROOT::Math::MinimizerOptions::SetDefaultStrategy(0);
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(-1);
 }
 
-int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
+int minimize(RooNLLVar* nll, RooWorkspace* combWS)
 {
   int printLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
   // RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
@@ -93,7 +94,7 @@ int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
   return status;
 }
 
-void RooStatsHelper::setVarfixed(RooWorkspace* combined, const char* varName, double imass)
+void setVarfixed(RooWorkspace* combined, const char* varName, double imass)
 {
   RooRealVar* _var = (RooRealVar*) combined->var(varName);
   if (_var) {
@@ -106,7 +107,7 @@ void RooStatsHelper::setVarfixed(RooWorkspace* combined, const char* varName, do
   }
 }
 
-void RooStatsHelper::setVarFree(RooWorkspace* combined, const char* varName){
+void setVarFree(RooWorkspace* combined, const char* varName){
   RooRealVar* _var = (RooRealVar*) combined->var(varName);
   if (_var) {
     _var->setConstant(kFALSE);
@@ -116,7 +117,7 @@ void RooStatsHelper::setVarFree(RooWorkspace* combined, const char* varName){
   }
 }
 
-pair<double,double> RooStatsHelper::getVarVal(RooWorkspace* combined, const char* varName){
+pair<double,double> getVarVal(RooWorkspace* combined, const char* varName){
   RooRealVar* mhiggs = (RooRealVar*) combined->var(varName);
   if(mhiggs){
     return make_pair(mhiggs ->getVal(),mhiggs->getError());
@@ -125,7 +126,7 @@ pair<double,double> RooStatsHelper::getVarVal(RooWorkspace* combined, const char
   }
 }
 
-RooNLLVar* RooStatsHelper::createNLL(RooAbsData* _data, RooStats::ModelConfig* _mc, const char* channelName)
+RooNLLVar* createNLL(RooAbsData* _data, RooStats::ModelConfig* _mc, const char* channelName)
 {
   const RooArgSet& nuis = *_mc->GetNuisanceParameters();
   TString chname(channelName);
@@ -144,7 +145,7 @@ RooNLLVar* RooStatsHelper::createNLL(RooAbsData* _data, RooStats::ModelConfig* _
   return nll;
 }
 
-double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, RooStats::ModelConfig* mc, 
+double getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, RooStats::ModelConfig* mc, 
         RooAbsData* data, RooArgSet* nuis_tmp, const char* conditionalName, 
         const char* muName, bool isRatioLogLikelihood)
 {
@@ -170,8 +171,8 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, Roo
         mu ->setConstant(1);
     }
     combined ->loadSnapshot("nominalGlobs");
-    RooNLLVar* nll = RooStatsHelper::createNLL(data, mc, "combined");
-    RooStatsHelper::minimize(nll, combined);
+    RooNLLVar* nll = createNLL(data, mc, "combined");
+    minimize(nll, combined);
     double obs_nll_min = nll ->getVal();
     cout << "mu_hat for " << data->GetName() << " " << mu->getVal() << 
         " " << mu->getError() << " " << obs_nll_min << endl;
@@ -182,8 +183,8 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, Roo
     combined ->loadSnapshot("nominalGlobs");
     mu ->setVal(1.0e-200);
     mu ->setConstant(1);
-    RooNLLVar* nllCond = RooStatsHelper::createNLL(data, mc, "combined");
-    RooStatsHelper::minimize(nllCond, combined);
+    RooNLLVar* nllCond = createNLL(data, mc, "combined");
+    minimize(nllCond, combined);
     double obs_nll_min_bkg = nllCond ->getVal();
     cout<<"NLL for background only: "<< obs_nll_min_bkg<<endl;
     delete nllCond;
@@ -198,7 +199,7 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, Roo
     return RooStats::SignificanceToPValue(obs_sig);
 }
 
-RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined, 
+RooDataSet* makeAsimovData(RooWorkspace* combined, 
         double muval, 
         double profileMu, 
         const char* muName, 
@@ -243,16 +244,16 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     { // would profile to the \hat_mu, 
         mu ->setConstant(kFALSE);
         mu ->setRange(-40,40);
-        RooNLLVar* conditioning_nll = RooStatsHelper::createNLL(combData, mcInWs, "combined");
-        RooStatsHelper::minimize(conditioning_nll, combined);//find the \hat_mu
+        RooNLLVar* conditioning_nll = createNLL(combData, mcInWs, "combined");
+        minimize(conditioning_nll, combined);//find the \hat_mu
         delete conditioning_nll;
     }
     mu ->setConstant(kTRUE); // Fix mu at the profileMu
     mu ->setRange(0,40);
     if (doprofile)
     { // profile nuisance parameters at mu = profileMu
-        RooNLLVar* conditioning_nll = RooStatsHelper::createNLL(combData, mcInWs, "combined");
-        RooStatsHelper::minimize(conditioning_nll, combined);
+        RooNLLVar* conditioning_nll = createNLL(combData, mcInWs, "combined");
+        minimize(conditioning_nll, combined);
     }
 
     //loop over the nui/glob list, grab the corresponding variable from the tmp ws, and set the glob to the value of the nui
@@ -376,4 +377,6 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
 
     combined->loadSnapshot("nominalGlobs");
     return asimovData;
+}
+ 
 }

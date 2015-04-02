@@ -10,22 +10,19 @@
 #include <RooGaussian.h>
 
 using namespace std;
-class Helper{
-  public:
-    Helper(){}
-    virtual ~Helper(){}
+namespace Helper{
     // help to read text file
-    static void readConfig(const char* filename, // input file name
+    void readConfig(const char* filename, // input file name
             char delim, 
             map<string, map<string, string> >& all_dic // reference to a dictionary
             );
-    static void tokenizeString(const string& str, char delim, vector<string>& tokens);
-    static void printDic( const map<string, map<string, string> >& all_dic );
+    void tokenizeString(const string& str, char delim, vector<string>& tokens);
+    void printDic( const map<string, map<string, string> >& all_dic );
 
     // to have a uniformed name convention for nuisance parameters and global name
-    static RooRealVar* createNuisanceVar(const char* npName);
-    static RooRealVar* createGlobalVar(const char* npName);
-    static RooAbsPdf* createConstraint(const char* npName);
+    RooRealVar* createNuisanceVar(const char* npName);
+    RooRealVar* createGlobalVar(const char* npName);
+    RooAbsPdf* createConstraint(const char* npName);
 
-};
+}
 #endif
