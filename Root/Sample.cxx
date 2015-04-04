@@ -16,8 +16,12 @@
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
 #include "RooExpandedDataHist.h"
 #include "RooExpandedHistPdf.h"
+#include "RooNDKeysPdf.h"
+#include "RooBinning.h"
+#include "Roo1DMomentMorphFunction.h"
 
 #include "Hzzws/Helper.h"
+#include "Hzzws/BinningUtil.h"
 
 Sample::Sample(const char* _name, 
         const char* _nickname,
@@ -29,14 +33,15 @@ Sample::Sample(const char* _name,
     name(_name),
     nickname(_nickname)
 {
-    hist_files = TFile::Open(Form("%s/%s", _path, _input), "read");
-    shape_files = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
+    hist_files_ = TFile::Open(Form("%s/%s", _path, _input), "read");
+    shape_files_ = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
     Helper::readConfig(Form("%s/%s", _path, _norm_sys), '=', all_norm_dic);
-    if(name.find("Signal") != string::npos) is_signal = true;
-    else is_signal = false;
+    if(name.find("Signal") != string::npos) is_signal_ = true;
+    else is_signal_ = false;
 
     norm_hist = NULL;
-    useMCC = false;
+    use_mcc_ = false;
+    use_adpt_bin_ = false;
 }
 
 Sample::~Sample(){
@@ -45,17 +50,49 @@ Sample::~Sample(){
 
 RooAbsPdf* Sample::makeHistPdf(TH1* hist)
 {
-    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist",hist->GetName()), "datahist",  this->obsList, hist);
-    string pdfname(Form("%s_%s", baseName.Data(), obsname.c_str()));
-    if (!useMCC) {
-        RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
-                this->obsList, *datahist, 3);
+    RooRealVar* obs =(RooRealVar*) obs_list_.at(0);
+    RooBinning* binning = new RooBinning();
+    if (use_adpt_bin_){ // find right binning
+        // TODO: use un-smoothed histogram 
+        // to determine the binning
+        // to calculate the statistic error
+        // rho: use 0.3, determined by half-half fitting?
+        RooRealVar rho("rho", "rho", 0.3);
+        RooNDKeysPdf* keyspdf = new RooNDKeysPdf("keyspdf", "keyspdf", *obs, *norm_hist, rho,
+                "3am", 3, false, false);
+        TMatrixD kref = keyspdf->getWeights(0);
+        Roo1DMomentMorphFunction f("f", "f", *obs, kref);
+        BinningUtil::getBinning(*binning, *obs,f);
+        obs->setBinning(*binning, "adaptive");
+    } 
+
+    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist",hist->GetName()), "datahist",  this->obs_list_, hist);
+    string pdfname(Form("%s_%s", base_name_.Data(), obsname.c_str()));
+    RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
+            this->obs_list_, *datahist, 3);
+    if (!use_mcc_) {
+        delete binning;
         return histpdf;
     }
     else {
-        auto* expandDataHist = new RooExpandedDataHist(*datahist, Form("%s_EDH",hist->GetName()));
+        RooDataHist* newdatahist = nullptr;
+        if (use_adpt_bin_) { 
+        // create a dataHist with statistic error from un-smoothed histogram
+            newdatahist = BinningUtil::makeAsimov1D( *histpdf, *obs, 
+                    //obs->getBinning(), 
+                    *binning,
+                    "adaptive", 
+                    norm_hist // TODO: use un-smoothed histogram
+                    );
+            delete datahist; // release old dataHist
+        } else {
+            newdatahist = datahist;
+        }
+        delete histpdf; // delete old histpdf 
+        auto* expandDataHist = new RooExpandedDataHist(*newdatahist, Form("%s_EDH",hist->GetName()));
         auto* histpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
-                obsList, *expandDataHist, 3);
+                obs_list_, *expandDataHist, 3);
+        delete binning;
         return histpdf;
     }
 }
@@ -66,14 +103,14 @@ double Sample::getExpectedValue(){
         return 0.0;
     }
     double expected_values = 0;  
-    RooRealVar* x_var = dynamic_cast<RooRealVar*>(obsList.at(0));
+    RooRealVar* x_var = dynamic_cast<RooRealVar*>(obs_list_.at(0));
     double xmax = x_var ->getMax(), xmin = x_var ->getMin();
     int binl = norm_hist ->FindFixBin(xmin);
     int binh = norm_hist ->FindFixBin(xmax);
-    if(obsList.getSize() == 1) {
+    if(obs_list_.getSize() == 1) {
         expected_values = norm_hist ->Integral(binl, binh);
-    }else if(obsList.getSize() == 2) {
-        RooRealVar* y_var = dynamic_cast<RooRealVar*>(obsList.at(1));
+    }else if(obs_list_.getSize() == 2) {
+        RooRealVar* y_var = dynamic_cast<RooRealVar*>(obs_list_.at(1));
         double ymax = y_var ->getMax(), ymin = y_var ->getMin();
         int binyl = norm_hist ->FindFixBin(xmin, ymin);
         int binyh = norm_hist ->FindFixBin(xmax, ymax);
@@ -88,16 +125,16 @@ double Sample::getExpectedValue(){
 
 void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
 {
-    obsList.removeAll();
+    obs_list_.removeAll();
 
     // set observables
     TIter next(_obs.createIterator());
     RooRealVar* var;
     while ( (var = (RooRealVar*) next()) ){
-        obsList.add(*var);
+        obs_list_.add(*var);
     }
-    if(obsList.getSize() == 1) obsname = string(obsList.at(0)->GetName());
-    else if(obsList.getSize() == 2) obsname = string(Form("%s_%s", obsList.at(0)->GetName(), obsList.at(1)->GetName()));
+    if(obs_list_.getSize() == 1) obsname = string(obs_list_.at(0)->GetName());
+    else if(obs_list_.getSize() == 2) obsname = string(Form("%s_%s", obs_list_.at(0)->GetName(), obs_list_.at(1)->GetName()));
     else {
         cerr << "3D is not supported.. " << endl;
     }
@@ -107,11 +144,11 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     category_name = string(_ch_name);
     cout<<" Sample: "<< name<< " set to category: " << category_name<<endl;
 
-    baseName = TString(Form("%s_%s", name.c_str(), category_name.c_str()));
+    base_name_ = TString(Form("%s_%s", name.c_str(), category_name.c_str()));
 
     // get norminal histogram
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
-    norm_hist =(TH1*) hist_files->Get(histName.Data());
+    norm_hist =(TH1*) hist_files_->Get(histName.Data());
     if(!norm_hist){
         cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
     }
@@ -137,11 +174,11 @@ void Sample::getShapeSys(){
     shapes_dic.clear();
     paramNames.clear();
     sysPdfs.clear();
-    if(!shape_files) return;
+    if(!shape_files_) return;
         
 
 
-    TIter next(shape_files->GetListOfKeys());
+    TIter next(shape_files_->GetListOfKeys());
     TKey* key;
     while ((key = (TKey*) next())){
         TString keyname(key->GetName());
@@ -160,7 +197,7 @@ void Sample::getShapeSys(){
                 // make sure first push_back "up" then "down" !
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
                 TString& downname = keyname.ReplaceAll("up","down");
-                TH1* h1 = dynamic_cast<TH1*>(shape_files->Get(downname.Data()));
+                TH1* h1 = dynamic_cast<TH1*>(shape_files_->Get(downname.Data()));
                 if(h1) shape_vary.push_back(h1);
                 else cerr<<" Cannot find down shape: "<< downname.Data()<<endl;
             }else if(varyName.EqualTo("down")){
@@ -256,21 +293,21 @@ RooAbsPdf* Sample::getPDF(){
 }
 
 RooAbsReal* Sample::getCoeff(){
-   TString varName(Form("n%s", baseName.Data()));
+   TString varName(Form("n%s", base_name_.Data()));
    RooRealVar* norm = new RooRealVar(varName.Data(), varName.Data(), this->getExpectedValue());
    RooArgList prodSet;
    prodSet.add(*norm);
-   if(is_signal) this->addMu(prodSet);
+   if(is_signal_) this->addMu(prodSet);
    
    if(lowValues.size() > 0){
-       TString fixName(Form("fiv_%s", baseName.Data()));
+       TString fixName(Form("fiv_%s", base_name_.Data()));
        // add FlexibleInterpVar
        auto* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
        // 4: piece-wise log outside boundaries, polynomial interpolation inside
        fiv->setAllInterpCodes(4); 
        prodSet.add(*fiv);
    }
-   TString prodName(Form("nTot%s", baseName.Data()));
+   TString prodName(Form("nTot%s", base_name_.Data()));
    RooProduct* normProd = new RooProduct(prodName.Data(), prodName.Data(), prodSet);
    return normProd;
 }
@@ -317,12 +354,12 @@ RooStarMomentMorph* Sample::createRooStarMomentMorph(const string& outputName)
 
     // make RooStarMomentMorph
     auto* tmpmorph = new RooStarMomentMorph (outputName.c_str(), outputName.c_str(),
-            parList, obsList, pdfList, nnuispoints, nrefpoints,
+            parList, obs_list_, pdfList, nnuispoints, nrefpoints,
             RooStarMomentMorph::Linear);
     tmpmorph->useHorizontalMorphing(false);
    
     // add bin by bin scale factor
-    if (useMCC) {
+    if (use_mcc_) {
         // copied from WorkspaceToolBase, line 911
         tmpmorph->setUseBinByBinScaleFactors(true);
         auto* tmppdf = dynamic_cast<RooExpandedDataHist*>(this->norm_pdf);
@@ -336,5 +373,8 @@ string Sample::getName(){
 }
 
 void Sample::setMCC(bool flag){
-    useMCC = flag;
+    use_mcc_ = flag;
+}
+void Sample::useAdaptiveBinning(){
+    use_adpt_bin_ = true;
 }

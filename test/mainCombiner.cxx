@@ -14,8 +14,13 @@
 // 
 // =====================================================================================
 #include "Hzzws/Combiner.h"
+
 int main(int argc, char* argv[]){
-    Combiner* combiner = new Combiner("combined","test.ini");
+    string configname = "test.ini";
+    if (argc > 1){
+        configname = string(argv[1]);
+    }
+    Combiner* combiner = new Combiner("combined", configname.c_str());
     delete combiner;
     return 0;
 }

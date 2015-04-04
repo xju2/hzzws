@@ -1,7 +1,7 @@
 // 
 //    Description:  @name, name of the sample
 //                  @hist_files,  root file contains smoothed histograms
-//                  @shape_files, root file contains shape variations
+//                  @shape_files_, root file contains shape variations
 //                  @all_norm_dic,  dictionary contains normalization uncertainties
 // 
 #ifndef __HZZWS_SAMPLE_H__
@@ -35,6 +35,7 @@ class Sample{
 
         void setChannel(RooArgSet&, const char* channelName, bool with_sys);
         void setMCC(bool flag);
+        void useAdaptiveBinning();
 
         bool addShapeSys(TString& npName);
         bool addNormSys(TString& npName);
@@ -48,18 +49,19 @@ class Sample{
         
         string name; // used to construct PDF
         string nickname; // used to name mu, i.e. POI
-        bool is_signal;
-        bool useMCC; // use MCConstraint if true
-        TString baseName; // name_categoryName
-        TFile* hist_files;
-        TFile* shape_files;
+        bool is_signal_ ;
+        bool use_mcc_ ; // use MCConstraint if true
+        bool use_adpt_bin_ ; // use adaptive binning if true
+        TString base_name_ ; // name_categoryName
+        TFile* hist_files_;
+        TFile* shape_files_;
         map<string, map<string, string> > all_norm_dic;
 
         //////////////////////////////////////// 
         //following variables are dependent on category
         //////////////////////////////////////// 
         string category_name;
-        RooArgList obsList;            
+        RooArgList obs_list_ ;            
         string obsname;
 
         TH1* norm_hist; // norminal histogram

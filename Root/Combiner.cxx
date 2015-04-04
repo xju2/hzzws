@@ -41,6 +41,32 @@ void Combiner::readConfig(const char* configName){
     //string input_data = all_dic["data"]["file_path"];  //TODO
     //data_file = TFile::Open(input_data.c_str(), "READ"); //TODO
 
+
+    ///////////////////////////////////
+    //add observable  (not for 2D yet)
+    ///////////////////////////////////
+    string obs_str = all_dic.at(mainSectionName)["observable"];
+    char delim = ',';
+    vector<string> obsPara;
+    Helper::tokenizeString(obs_str, delim, obsPara);
+    // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
+    RooRealVar *var = nullptr;
+    bool use_adaptive_binning = false;
+    if (obsPara.size() > 3){
+        var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
+            atof(obsPara.at(2).c_str()), atof(obsPara.at(3).c_str())); 
+        var->setBins(atoi(obsPara.at(1).c_str()));
+    } 
+    else { 
+       // adaptive binning, only set range
+       // The actual binning will be choosen for different input histograms
+       var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
+               atof(obsPara.at(1).c_str()), atof(obsPara.at(2).c_str()));
+       use_adaptive_binning = true;
+    }
+    cout << var->GetName() << endl;
+    obs.add(*var);
+
     ///////////////////////////////////
     //load samples
     ///////////////////////////////////
@@ -60,6 +86,7 @@ void Combiner::readConfig(const char* configName){
         if (tokens.size() > 4){
             newsample->setMCC((bool)atoi(tokens.at(4).c_str()));
         }
+        if(use_adaptive_binning) newsample ->useAdaptiveBinning();
         allSamples[sample.first] = newsample;
     }
 
@@ -74,20 +101,6 @@ void Combiner::readConfig(const char* configName){
         sysMan = new SystematicsManager();
         cerr << "NPlist is not defined" << endl;
     }
-    ///////////////////////////////////
-    //add observable  (not for 2D yet)
-    ///////////////////////////////////
-    string obs_str = all_dic.at(mainSectionName)["observable"];
-    
-    char delim = ',';
-    vector<string> obsPara;
-    Helper::tokenizeString(obs_str, delim, obsPara);
-    // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
-    RooRealVar var(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
-            atoi(obsPara.at(2).c_str()), atoi(obsPara.at(3).c_str())); 
-    var.setBins(atoi(obsPara.at(1).c_str()));
-    cout << var.GetName() << endl;
-    obs.add(var);
 
     auto* workspace = new RooWorkspace(m_name.Data());
     ///////////////////////////////////
