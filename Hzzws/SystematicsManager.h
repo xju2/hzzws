@@ -1,5 +1,6 @@
 // 
-//    Description:  Have all the systematics and know how to add systematics
+//    Description:  Overall control of all systematics.
+//    It tells Sample which systematics to add
 // 
 #ifndef __HZZWS_SYSTEMATICSMANAGER_H__
 #define __HZZWS_SYSTEMATICSMANAGER_H__

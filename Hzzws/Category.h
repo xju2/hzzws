@@ -1,4 +1,4 @@
-// TODO: add description
+// 
 //
 #ifndef __HZZWS_CATEGORY_H__
 #define __HZZWS_CATEGORY_H__
@@ -19,18 +19,19 @@ class Category {
 
  public:
 
-  // Constructor using pre-defined labels.  Passing NYEARS for year will add all years to category.
+  // Constructor using pre-defined labels.
   explicit Category(const string& label);
   virtual ~Category();
 
   string label() const { return m_label; }
   /////////////////////////////////////
-  //Add sample to this category, tell sample to work in this category
-  //Add systematics in SystematicsManager
+  // Add sample to this category, tell sample to work in this category
+  // Add systematics in SystematicsManager
   /////////////////////////////////////
   void addSample(Sample* sample, SystematicsManager* sysMan);
   void setObservables(RooArgSet& _obs);
 
+  // get the final PDF for this category
   RooAbsPdf* getPDF();
  private:
 

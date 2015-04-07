@@ -37,7 +37,6 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
     }
     pdfList.add(*(sample->getPDF()));
     coefList.add(*(sample->getCoeff()));
-    // add MCConstraint if available
 }
 
 void Category::setObservables(RooArgSet& _obs)
@@ -48,6 +47,7 @@ void Category::setObservables(RooArgSet& _obs)
     while ( (var = (RooRealVar*) next()) ){
         obs.add(*var);
     }
+    delete iter;
 }
 
 RooAbsPdf* Category::getPDF(){

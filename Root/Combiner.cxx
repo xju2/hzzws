@@ -64,7 +64,8 @@ void Combiner::readConfig(const char* configName){
                atof(obsPara.at(1).c_str()), atof(obsPara.at(2).c_str()));
        use_adaptive_binning = true;
     }
-    cout << var->GetName() << endl;
+    cout << "observable: " << var->GetName() << endl;
+    if(use_adaptive_binning) cout << "use adaptive binning" << endl;
     obs.add(*var);
 
     ///////////////////////////////////

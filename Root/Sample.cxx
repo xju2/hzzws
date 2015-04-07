@@ -58,67 +58,76 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist)
         // to calculate the statistic error
         // rho: use 0.3, determined by half-half fitting?
         RooRealVar rho("rho", "rho", 0.3);
-        RooNDKeysPdf* keyspdf = new RooNDKeysPdf("keyspdf", "keyspdf", *obs, *norm_hist, rho,
+        auto* keyspdf = new RooNDKeysPdf("keyspdf", "keyspdf", *obs, *norm_hist, rho,
                 "3am", 3, false, false);
         TMatrixD kref = keyspdf->getWeights(0);
         Roo1DMomentMorphFunction f("f", "f", *obs, kref);
         BinningUtil::getBinning(*binning, *obs,f);
         obs->setBinning(*binning, "adaptive");
+        delete keyspdf;
+        cout << "total bins: " << binning->numBoundaries() << endl;
     } 
 
-    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist",hist->GetName()), "datahist",  this->obs_list_, hist);
+    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", hist->GetName()), "datahist",  
+            this->obs_list_, hist);
     string pdfname(Form("%s_%s", base_name_.Data(), obsname.c_str()));
     RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
             this->obs_list_, *datahist, 3);
+    RooDataHist* newdatahist = nullptr;
+    if (use_adpt_bin_) { 
+        // create a dataHist with statistic error from un-smoothed histogram
+        newdatahist = BinningUtil::makeAsimov1D( *histpdf, *obs, 
+                //obs->getBinning(), 
+                *binning,
+                "adaptive", 
+                norm_hist // TODO: use un-smoothed histogram
+                );
+        delete datahist; // release old dataHist
+    } 
+    else {
+        newdatahist = datahist;
+    }
+
     if (!use_mcc_) {
+        delete histpdf;
+        RooHistPdf *newhistpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
+                obs_list_, *newdatahist, 3);
         delete binning;
-        return histpdf;
+        return newhistpdf;
     }
     else {
-        RooDataHist* newdatahist = nullptr;
-        if (use_adpt_bin_) { 
-        // create a dataHist with statistic error from un-smoothed histogram
-            newdatahist = BinningUtil::makeAsimov1D( *histpdf, *obs, 
-                    //obs->getBinning(), 
-                    *binning,
-                    "adaptive", 
-                    norm_hist // TODO: use un-smoothed histogram
-                    );
-            delete datahist; // release old dataHist
-        } else {
-            newdatahist = datahist;
-        }
         delete histpdf; // delete old histpdf 
         auto* expandDataHist = new RooExpandedDataHist(*newdatahist, Form("%s_EDH",hist->GetName()));
-        auto* histpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
+        auto* newhistpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
                 obs_list_, *expandDataHist, 3);
         delete binning;
-        return histpdf;
+        return newhistpdf;
     }
 }
 
 double Sample::getExpectedValue(){
     // TODO: need to be tested for 2-d
-    if(!norm_hist){
+    if (!norm_hist) {
         return 0.0;
     }
     double expected_values = 0;  
     RooRealVar* x_var = dynamic_cast<RooRealVar*>(obs_list_.at(0));
-    double xmax = x_var ->getMax(), xmin = x_var ->getMin();
-    int binl = norm_hist ->FindFixBin(xmin);
-    int binh = norm_hist ->FindFixBin(xmax);
-    if(obs_list_.getSize() == 1) {
-        expected_values = norm_hist ->Integral(binl, binh);
-    }else if(obs_list_.getSize() == 2) {
+    double xmax = x_var->getMax(), xmin = x_var->getMin();
+    int binl = norm_hist->FindFixBin(xmin);
+    int binh = norm_hist->FindFixBin(xmax);
+    if (obs_list_.getSize() == 1) {
+        expected_values = norm_hist->Integral(binl, binh);
+    } 
+    else if (obs_list_.getSize() == 2) {
         RooRealVar* y_var = dynamic_cast<RooRealVar*>(obs_list_.at(1));
-        double ymax = y_var ->getMax(), ymin = y_var ->getMin();
-        int binyl = norm_hist ->FindFixBin(xmin, ymin);
-        int binyh = norm_hist ->FindFixBin(xmax, ymax);
-        expected_values = norm_hist ->Integral(binyl, binyh);
-    }else{
-        cerr <<"3D is not supported.. "<<endl;
+        double ymax = y_var->getMax(), ymin = y_var->getMin();
+        int binyl = norm_hist->FindFixBin(xmin, ymin);
+        int binyh = norm_hist->FindFixBin(xmax, ymax);
+        expected_values = norm_hist->Integral(binyl, binyh);
+    } else {
+        cerr << "3D is not supported.. " << endl;
     }
-    cout<<"Sample "<< name <<" expects "<< expected_values <<" in "<< category_name <<endl;
+    cout << "Sample " << name << " expects " << expected_values << " in " << category_name << endl;
     return expected_values;
 }
 
@@ -128,13 +137,16 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     obs_list_.removeAll();
 
     // set observables
-    TIter next(_obs.createIterator());
+    auto* iter =  _obs.createIterator();
+    TIter next(iter);
     RooRealVar* var;
     while ( (var = (RooRealVar*) next()) ){
         obs_list_.add(*var);
     }
-    if(obs_list_.getSize() == 1) obsname = string(obs_list_.at(0)->GetName());
-    else if(obs_list_.getSize() == 2) obsname = string(Form("%s_%s", obs_list_.at(0)->GetName(), obs_list_.at(1)->GetName()));
+    delete iter;
+    if (obs_list_.getSize() == 1) obsname = string(obs_list_.at(0)->GetName());
+    else if (obs_list_.getSize() == 2) 
+        obsname = string(Form("%s_%s", obs_list_.at(0)->GetName(), obs_list_.at(1)->GetName()));
     else {
         cerr << "3D is not supported.. " << endl;
     }
@@ -149,11 +161,11 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     // get norminal histogram
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files_->Get(histName.Data());
-    if(!norm_hist){
+    if (!norm_hist) {
         cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
     }
     
-    if (with_sys){
+    if (with_sys) {
         // get shape sys dictionary
         this ->getShapeSys();
         // get normalization sys dictionary
@@ -176,8 +188,6 @@ void Sample::getShapeSys(){
     sysPdfs.clear();
     if(!shape_files_) return;
         
-
-
     TIter next(shape_files_->GetListOfKeys());
     TKey* key;
     while ((key = (TKey*) next())){
@@ -191,30 +201,31 @@ void Sample::getShapeSys(){
 
         if( keyname.Contains(this->category_name) ){
             vector<TH1*> shape_vary;
-            if(varyName.EqualTo("sym")){
+            if (varyName.EqualTo("sym")) {
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
-            }else if(varyName.EqualTo("up")){
+            }
+            else if (varyName.EqualTo("up")) {
                 // make sure first push_back "up" then "down" !
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
                 TString& downname = keyname.ReplaceAll("up","down");
                 TH1* h1 = dynamic_cast<TH1*>(shape_files_->Get(downname.Data()));
-                if(h1) shape_vary.push_back(h1);
+                if (h1) shape_vary.push_back(h1);
                 else cerr<<" Cannot find down shape: "<< downname.Data()<<endl;
-            }else if(varyName.EqualTo("down")){
+            } else if (varyName.EqualTo("down")) {
                 continue;
-            }else{
+            } else {
                 cerr << "Don't undertand the histname: " << keyname << endl;
             }
             shapes_dic[npName] = shape_vary;
         }
         delete splitNames;
     }
-    cout << shapes_dic.size() <<" shape systematics added!" << endl;
+    cout << shapes_dic.size() << " shape systematics added!" << endl;
 }
 
 void Sample::getNormSys(){
     norms_dic.clear();
-    for (auto& sec : all_norm_dic){
+    for (auto& sec : all_norm_dic) {
         if (sec.first.compare(category_name) == 0) {
             for (auto& npName : sec.second) {
                 istringstream iss(npName.second);
@@ -235,29 +246,30 @@ bool Sample::addShapeSys(TString& npName){
     vector<TH1*> shape_varies ;
     try{
         shape_varies = this->shapes_dic.at(npName);
-    }catch(const out_of_range& oor){
+    } catch (const out_of_range& oor) {
         return false;
     }
 
     TH1* histUp   = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_up",  norm_hist->GetName())));
     TH1* histDown = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_down",norm_hist->GetName())));
-    if(shape_varies.size() == 1){
+    if (shape_varies.size() == 1) {
         // add symmetric error
         TH1* h1 = shape_varies.at(0);
-        for(int i = 0; i < norm_hist->GetNbinsX(); i++){
+        for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
             histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1+h1->GetBinContent(i+1)));
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1-h1->GetBinContent(i+1)));
         }
-    }else if(shape_varies.size() == 2){
+    } else if(shape_varies.size() == 2) {
         // add asymmetric error
         TH1* h1 = shape_varies.at(0);
         TH1* h2 = shape_varies.at(1);
-        for(int i = 0; i < norm_hist->GetNbinsX(); i++){
+        for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
             histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h1->GetBinContent(i+1));
             histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
         }
-    }else{
-        cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: "<< shape_varies.size() <<endl;
+    } else {
+        cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: " 
+            << shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
     RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp);
@@ -270,7 +282,7 @@ bool Sample::addNormSys(TString& npName){
     vector<float>* norm_varies;
     try{
         norm_varies =&( this->norms_dic.at(npName));
-    }catch(const out_of_range& oor){
+    } catch (const out_of_range& oor) {
         return false;
     }
     RooRealVar* npVar = Helper::createNuisanceVar(npName.Data());
@@ -282,10 +294,10 @@ bool Sample::addNormSys(TString& npName){
 
 RooAbsPdf* Sample::getPDF(){
     norm_pdf = this->makeHistPdf(this->norm_hist);
-    if(paramNames.size() < 1) // no shape systematics
+    if (paramNames.size() < 1) // no shape systematics
     {
         return  norm_pdf;
-    }else{
+    } else {
         string pdfname(Form("%s_withSys", norm_pdf->GetName()));
         RooStarMomentMorph* morph = this->createRooStarMomentMorph(pdfname);
         return morph;
@@ -297,9 +309,9 @@ RooAbsReal* Sample::getCoeff(){
    RooRealVar* norm = new RooRealVar(varName.Data(), varName.Data(), this->getExpectedValue());
    RooArgList prodSet;
    prodSet.add(*norm);
-   if(is_signal_) this->addMu(prodSet);
+   if (is_signal_) this->addMu(prodSet);
    
-   if(lowValues.size() > 0){
+   if (lowValues.size() > 0) {
        TString fixName(Form("fiv_%s", base_name_.Data()));
        // add FlexibleInterpVar
        auto* fiv = new RooStats::HistFactory::FlexibleInterpVar(fixName.Data(), fixName.Data(), np_vars, 1., lowValues, highValues);
