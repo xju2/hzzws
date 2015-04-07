@@ -143,7 +143,6 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     while ( (var = (RooRealVar*) next()) ){
         obs_list_.add(*var);
     }
-    delete iter;
     if (obs_list_.getSize() == 1) obsname = string(obs_list_.at(0)->GetName());
     else if (obs_list_.getSize() == 2) 
         obsname = string(Form("%s_%s", obs_list_.at(0)->GetName(), obs_list_.at(1)->GetName()));

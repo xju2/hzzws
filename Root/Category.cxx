@@ -47,7 +47,6 @@ void Category::setObservables(RooArgSet& _obs)
     while ( (var = (RooRealVar*) next()) ){
         obs.add(*var);
     }
-    delete iter;
 }
 
 RooAbsPdf* Category::getPDF(){
