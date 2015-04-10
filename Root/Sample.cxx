@@ -331,6 +331,8 @@ void Sample::addMu(RooArgList& prodSet)
     RooRealVar* mu = new RooRealVar("mu", "mu", 1.0, -30., 30);
     string mu_name(Form("mu_%s", this->nickname.c_str()));
     RooRealVar* mu_sample = new RooRealVar(mu_name.c_str(), mu_name.c_str(), 1.0, -30, 30);
+    mu->setConstant(true);
+    mu_sample->setConstant(true);
     prodSet.add(*mu);
     prodSet.add(*mu_sample);
 }

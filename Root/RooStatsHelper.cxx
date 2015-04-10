@@ -204,7 +204,7 @@ RooDataSet* makeAsimovData(RooWorkspace* combined,
         double profileMu, 
         const char* muName, 
         const char* mcname, 
-        const char* obsname, 
+        const char* dataname, 
         bool doprofile)
 {
     RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR);
@@ -224,7 +224,7 @@ RooDataSet* makeAsimovData(RooWorkspace* combined,
     const RooArgSet& mc_nuis  = *mcInWs->GetNuisanceParameters();
 
     // RooAbsPdf*  combPdf = (RooAbsPdf*) mcInWs ->GetPdf();
-    RooDataSet* combData = (RooDataSet*) combined->data(obsname);
+    RooDataSet* combData = (RooDataSet*) combined->data(dataname);
 
     //save the snapshots of nominal parameters, but only if they're not already saved
     if (!combined->loadSnapshot("nominalGlobs"))
@@ -373,7 +373,7 @@ RooDataSet* makeAsimovData(RooWorkspace* combined,
     combined->import(*asimovData);
     cout<<"AsimovData is created"<<endl;
     asimovData ->Print("v");
-    cout<<asimovData ->sumEntries()<<endl;
+    cout<< asimovData ->sumEntries()<<endl;
 
     combined->loadSnapshot("nominalGlobs");
     return asimovData;

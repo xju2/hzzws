@@ -29,7 +29,7 @@ namespace RooStatsHelper{
             double profileMu,  // used when fit data
             const char* muName, // name of POI
             const char* mcname, // name of ModelConfig
-            const char* obsname, // name of observed Data
+            const char* dataname, // name of observed Data
             bool doprofile    // profile to data?
             );
     // get p0-value
