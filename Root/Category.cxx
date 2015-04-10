@@ -53,7 +53,7 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
                     )) 
         {
             // TODO: to understand....
-            // if (global->isConstant()) continue; // not include the ones below threshold.
+            if (global->isConstant()) continue; // not include the ones below threshold.
             global_obs_list_.add(*global);
             nuisance_obs_list_.add(*nuisance);
         }

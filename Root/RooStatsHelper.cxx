@@ -256,20 +256,22 @@ RooDataSet* makeAsimovData(RooWorkspace* combined,
         minimize(conditioning_nll, combined);
     }
 
-    //loop over the nui/glob list, grab the corresponding variable from the tmp ws, and set the glob to the value of the nui
-    TIterator* nuis_iter = mc_globs.createIterator();
-    TIterator* glob_iter = mc_nuis.createIterator();
+    // loop over the nui/glob list, grab the corresponding variable from the tmp ws, 
+    // and set the glob to the value of the nui
+    TIter nuis_iter (mc_globs.createIterator());
+    TIter glob_iter (mc_nuis.createIterator());
     RooRealVar* nuis;
     RooRealVar* glob;
     while ((
-                glob = (RooRealVar*) glob_iter->Next(),
-                nuis = (RooRealVar*) nuis_iter->Next()
+                glob = (RooRealVar*) glob_iter(),
+                nuis = (RooRealVar*) nuis_iter()
                 ))
     {
+        if (!nuis || !glob) continue;
+        cout<<" nuisance Name: " << nuis->GetName() << endl;
+        cout<<" global Name: " << glob->GetName() << endl;
         glob->setVal(nuis->getVal());
     }
-    delete nuis_iter;
-    delete glob_iter;
     combined->saveSnapshot(("conditionalGlobs"+muStr.str()).c_str(), mc_globs);
     combined->saveSnapshot(("conditionalNuis" +muStr.str()).c_str(), mc_nuis);
 

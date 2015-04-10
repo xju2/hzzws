@@ -226,4 +226,5 @@ void Combiner::configWorkspace(RooWorkspace* ws)
     modelConfig.SetObservables         ( *ws->set("obs") );
     modelConfig.SetNuisanceParameters  ( *ws->set("nuisance") );
     modelConfig.SetGlobalObservables   ( *ws->set("globalobs") );
+    ws->import(modelConfig);
 }
