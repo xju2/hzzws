@@ -261,8 +261,10 @@ RooDataSet* makeAsimovData(RooWorkspace* combined,
     TIterator* glob_iter = mc_nuis.createIterator();
     RooRealVar* nuis;
     RooRealVar* glob;
-    while ((glob = (RooRealVar*) glob_iter->Next(),
-                nuis = (RooRealVar*) nuis_iter->Next()))
+    while ((
+                glob = (RooRealVar*) glob_iter->Next(),
+                nuis = (RooRealVar*) nuis_iter->Next()
+                ))
     {
         glob->setVal(nuis->getVal());
     }

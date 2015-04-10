@@ -8,6 +8,7 @@
 #include <RooAddPdf.h>
 #include <RooGaussian.h>
 #include <RooProdPdf.h>
+#include <RooMCHistConstraint.h>
 
 #include "Hzzws/Helper.h"
 //________________________________________________________________________
@@ -37,6 +38,26 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
     }
     pdfList.add(*(sample->getPDF()));
     coefList.add(*(sample->getCoeff()));
+    RooMCHistConstraint* mc_constrt = 
+        dynamic_cast<RooMCHistConstraint*>(sample->get_mc_constraint());
+    // add MC constraint terms
+    if (mc_constrt != nullptr){
+        constraintList.add(*mc_constrt);
+        TIter next_global(mc_constrt->getGlobalObservables().createIterator());
+        TIter next_nuis(mc_constrt->getNuisanceParameters().createIterator());
+        RooAbsReal* global;
+        RooAbsReal* nuisance;
+        while ((
+                    global = (RooAbsReal*) next_global(),
+                    nuisance = (RooAbsReal*) next_nuis()
+                    )) 
+        {
+            // TODO: to understand....
+            // if (global->isConstant()) continue; // not include the ones below threshold.
+            global_obs_list_.add(*global);
+            nuisance_obs_list_.add(*nuisance);
+        }
+    }
 }
 
 void Category::setObservables(RooArgSet& _obs)

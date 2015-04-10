@@ -16,6 +16,7 @@
 #include <RooProduct.h>
 #include <RooAbsReal.h>
 #include <RooStarMomentMorph.h>
+#include <RooMCHistConstraint.h>
 
 #include <fstream>
 #include <map>
@@ -40,7 +41,7 @@ class Sample{
         // Set the status of the sample
         //////////////////////////////////////////////////////////// 
         void setChannel(RooArgSet&, const char* channelName, bool with_sys);
-        void setMCC(bool flag); // if use MC constraint
+        void setMCCThreshold(float thresh); // if thresh < 0, not use mc constraint
         void useAdaptiveBinning(); // use adaptive binning
 
         //////////////////////////////////////////////////////////// 
@@ -52,14 +53,16 @@ class Sample{
         // derivate class may want their implemations of the pdfs and coefficiency
         virtual RooAbsPdf* getPDF();
         virtual RooAbsReal*  getCoeff();
+        virtual RooAbsPdf* get_mc_constraint();
         
     protected: 
         
         string name; 
         string nickname; 
         bool is_signal_ ;
-        bool use_mcc_ ; // use MCConstraint if true
+        bool use_mcc_ ; // use MC constraint if true
         bool use_adpt_bin_ ; // use adaptive binning if true
+        float thresh_ ; // threshold value for MC constraint
         TString base_name_ ; // name_categoryName
         TFile* hist_files_;
         TFile* shape_files_;
@@ -88,14 +91,14 @@ class Sample{
         vector<double> highValues;
         RooArgList np_vars;
         //////////////////////////////////////// 
-        // Constraint terms for each systematics
+        // Constraint terms for each binning systematics
         //////////////////////////////////////// 
-        // RooArgSet np_constraint;
+        RooMCHistConstraint* mc_constraint; 
 
         //////////////////////////////////////// 
         //  Functions...
         //////////////////////////////////////// 
-        RooAbsPdf* makeHistPdf(TH1*);
+        RooAbsPdf* makeHistPdf(TH1*, bool is_norm = false);
         double getExpectedValue();
         void addMu(RooArgList& prodSet);
         void getShapeSys();

@@ -28,11 +28,13 @@ int main(int argc, char** argv){
     combined->saveSnapshot("nominalGlobs",*mc->GetGlobalObservables());
     combined->saveSnapshot("nominalNuis",*mc->GetNuisanceParameters());
 
-    RooStatsHelper::makeAsimovData(combined, 1.0, 0.0, 
+    RooStatsHelper::makeAsimovData(combined, 
+            1.0, // mu in pdf
+            0.0, // the value when profile to data
             muName.c_str(), 
             mcName.c_str(),
             dataName.c_str(),
-            false);
+            false); // donot profile!
     RooDataSet* asimovData = (RooDataSet*) combined ->data("asimovData1_paz");
     double exp_pvalue = RooStatsHelper::getPvalue(combined, 
             combPdf, mc, asimovData, nuis_tmp, "nominalGlobs", muName.c_str());

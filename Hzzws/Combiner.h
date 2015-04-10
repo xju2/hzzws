@@ -27,6 +27,8 @@ class Combiner{
         string simpdf_name;
         string mainSectionName;
         map<string, map<string, string> > all_dic;
+        RooArgSet nuisanceSet;
+        RooArgSet globalobsSet;
 
         //TFile* data_file; //TODO
         map<string, Sample*> allSamples;

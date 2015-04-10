@@ -85,7 +85,7 @@ void Combiner::readConfig(const char* configName){
         auto* newsample = new Sample(tokens.at(3).c_str(), sample.first.c_str(), 
                 tokens.at(0).c_str(), tokens.at(1).c_str(), tokens.at(2).c_str(), file_path.c_str());
         if (tokens.size() > 4){
-            newsample->setMCC((bool)atoi(tokens.at(4).c_str()));
+            newsample->setMCCThreshold(atof(tokens.at(4).c_str()));
         }
         if(use_adaptive_binning) newsample ->useAdaptiveBinning();
         allSamples[sample.first] = newsample;
@@ -131,16 +131,35 @@ void Combiner::readConfig(const char* configName){
 
         string catName(Form("%sCat",category_name.c_str()));
         channelCat.defineType(catName.c_str(), catIndex++);
+        //////////////////////////////////////////////////////////////
         // Category will sum individual sample's pdf and add constraint terms
+        //////////////////////////////////////////////////////////////
         RooAbsPdf* final_pdf = category ->getPDF();
         string final_pdf_name(final_pdf->GetName()); 
         // final_pdf->getVal(); // To increast the fitting speed??
-        workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());
+        workspace ->import(*final_pdf, RooFit::RecycleConflictNodes(), RooFit::Silence());
+
+        //////////////////////////////////////////////////////////////
+        // Add nuisance parameters and global observables for MC statistic
+        //////////////////////////////////////////////////////////////
+        TIter next_global(category->getGlobal().createIterator());
+        TIter next_nuis(category->getNuisance().createIterator());
+        RooAbsReal* global; 
+        RooAbsReal* nuisance;
+        while ((
+                    global = (RooAbsReal*) next_global(),
+                    nuisance = (RooAbsReal*) next_nuis()
+                    )) 
+        {
+            nuisanceSet.add(*nuisance);
+            globalobsSet.add(*global);
+        }
+
         delete category;
         pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());
     }
     auto* simPdf = new RooSimultaneous(simpdf_name.c_str(), simpdf_name.c_str(), pdfMap, channelCat);
-    workspace ->import(*simPdf);
+    workspace ->import(*simPdf, RooFit::Silence());
     this->configWorkspace(workspace);
     workspace ->writeToFile("combined.root");
 }
@@ -181,8 +200,9 @@ void Combiner::configWorkspace(RooWorkspace* ws)
     RooArgSet poiSet;
     poiSet.add(* ws->var("mu") );
 
-    RooArgSet nuisanceSet;
-    RooArgSet globalobsSet;
+    //////////////////////////////
+    // define nusiance parameters and global observables
+    //////////////////////////////
     for(auto& np : *(sysMan->getNP()))
     {
         string nuisanceName(Form("alpha_%s", np.Data()));
@@ -201,11 +221,9 @@ void Combiner::configWorkspace(RooWorkspace* ws)
 
     RooStats::ModelConfig modelConfig("ModelConfig","H->4l example");
     modelConfig.SetWorkspace           ( *ws );
-
     modelConfig.SetPdf(*ws->pdf(simpdf_name.c_str()));
     modelConfig.SetParametersOfInterest( *ws->set("poi") );
     modelConfig.SetObservables         ( *ws->set("obs") );
     modelConfig.SetNuisanceParameters  ( *ws->set("nuisance") );
     modelConfig.SetGlobalObservables   ( *ws->set("globalobs") );
-    ws ->import(modelConfig);
 }

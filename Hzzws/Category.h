@@ -33,6 +33,8 @@ class Category {
 
   // get the final PDF for this category
   RooAbsPdf* getPDF();
+  const RooArgList& getGlobal() { return global_obs_list_; }
+  const RooArgList& getNuisance() { return nuisance_obs_list_; } 
  private:
 
   string m_label;
@@ -43,7 +45,8 @@ class Category {
   RooArgList pdfList;
   RooArgList coefList;
   RooArgList constraintList; 
-
+  RooArgList global_obs_list_;
+  RooArgList nuisance_obs_list_;
 };
 
 #endif 

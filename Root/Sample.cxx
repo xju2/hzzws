@@ -39,16 +39,17 @@ Sample::Sample(const char* _name,
     if(name.find("Signal") != string::npos) is_signal_ = true;
     else is_signal_ = false;
 
-    norm_hist = NULL;
+    norm_hist = nullptr;
     use_mcc_ = false;
     use_adpt_bin_ = false;
+    mc_constraint = nullptr;
 }
 
 Sample::~Sample(){
 
 }
 
-RooAbsPdf* Sample::makeHistPdf(TH1* hist)
+RooAbsPdf* Sample::makeHistPdf(TH1* hist, bool is_norm)
 {
     RooRealVar* obs =(RooRealVar*) obs_list_.at(0);
     RooBinning* binning = new RooBinning();
@@ -88,7 +89,7 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist)
         newdatahist = datahist;
     }
 
-    if (!use_mcc_) {
+    if (!use_mcc_ || !is_norm) {
         delete histpdf;
         RooHistPdf *newhistpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
                 obs_list_, *newdatahist, 3);
@@ -135,6 +136,8 @@ double Sample::getExpectedValue(){
 void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
 {
     obs_list_.removeAll();
+    // if (mc_constraint != nullptr) delete mc_constraint; // if do so, program crash....
+    mc_constraint = nullptr;
 
     // set observables
     auto* iter =  _obs.createIterator();
@@ -274,8 +277,8 @@ bool Sample::addShapeSys(TString& npName){
             << shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
-    RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp);
-    RooAbsPdf* histDownPDF = this->makeHistPdf(histDown);
+    RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp,   false);
+    RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, false);
     sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
     return true;
 }
@@ -295,14 +298,19 @@ bool Sample::addNormSys(TString& npName){
 }
 
 RooAbsPdf* Sample::getPDF(){
-    norm_pdf = this->makeHistPdf(this->norm_hist);
+    norm_pdf = this->makeHistPdf(this->norm_hist, true);
+    if (use_mcc_) 
+    {
+        string pdfname(Form("%s_normConstraint", norm_pdf->GetName()));
+        mc_constraint = new RooMCHistConstraint(pdfname.c_str(), "constraint", 
+                *norm_pdf, RooMCHistConstraint::Poisson, thresh_);
+    }
     if (paramNames.size() < 1) // no shape systematics
     {
         return  norm_pdf;
     } else {
         string pdfname(Form("%s_withSys", norm_pdf->GetName()));
-        RooStarMomentMorph* morph = this->createRooStarMomentMorph(pdfname);
-        return morph;
+        return this->createRooStarMomentMorph(pdfname);
     }
 }
 
@@ -388,9 +396,18 @@ string Sample::getName(){
     return this->name;
 }
 
-void Sample::setMCC(bool flag){
-    use_mcc_ = flag;
+void Sample::setMCCThreshold(float thresh){
+    if (thresh > 0) {
+        use_mcc_ = true;
+        thresh_ = thresh;
+    } else {
+        use_mcc_ = false;
+    }
 }
 void Sample::useAdaptiveBinning(){
     use_adpt_bin_ = true;
+}
+
+RooAbsPdf* Sample::get_mc_constraint(){
+    return mc_constraint;
 }
