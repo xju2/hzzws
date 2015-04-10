@@ -90,7 +90,7 @@ class Sample{
         //////////////////////////////////////// 
         // Constraint terms for each systematics
         //////////////////////////////////////// 
-        RooArgSet np_constraint;
+        // RooArgSet np_constraint;
 
         //////////////////////////////////////// 
         //  Functions...

@@ -224,6 +224,9 @@ void Sample::getShapeSys(){
 
 void Sample::getNormSys(){
     norms_dic.clear();
+    lowValues.clear();
+    highValues.clear();
+    np_vars.removeAll();
     for (auto& sec : all_norm_dic) {
         if (sec.first.compare(category_name) == 0) {
             for (auto& npName : sec.second) {
