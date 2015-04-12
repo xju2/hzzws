@@ -74,7 +74,8 @@ RooRealVar* createNuisanceVar(const char* npName)
 RooRealVar* createGlobalVar(const char* npName)
 {
     string npVarName(Form("nom_%s",npName));
-    RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -1., 1.);
+    RooRealVar* npVar = new RooRealVar(npVarName.c_str(), npVarName.c_str(), 0.0, -10., 10.);
+    npVar->setConstant();
     return npVar;
 }
 

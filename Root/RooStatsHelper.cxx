@@ -141,6 +141,7 @@ RooNLLVar* createNLL(RooAbsData* _data, RooStats::ModelConfig* _mc, const char* 
     nll = (RooNLLVar*) pdf->createNLL(*_data, RooFit::Constrain(nuis), agg);
   }else{
     nll = (RooNLLVar*)_mc->GetPdf()->createNLL(*_data, RooFit::Constrain(nuis), agg);
+    // nll = (RooNLLVar*)_mc->GetPdf()->createNLL(*_data, RooFit::Constrain(nuis), RooFit::GlobalObservables(*_mc->GetGlobalObservables()));
   }
   return nll;
 }
@@ -172,6 +173,7 @@ double getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, RooStats::ModelConf
     }
     combined ->loadSnapshot("nominalGlobs");
     RooNLLVar* nll = createNLL(data, mc, "combined");
+    // look at the global observables
     minimize(nll, combined);
     double obs_nll_min = nll ->getVal();
     cout << "mu_hat for " << data->GetName() << " " << mu->getVal() << 
