@@ -49,7 +49,7 @@ Sample::~Sample(){
 
 }
 
-RooAbsPdf* Sample::makeHistPdf(TH1* hist, bool is_norm)
+RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
 {
     RooRealVar* obs =(RooRealVar*) obs_list_.at(0);
     RooBinning* binning = new RooBinning();
@@ -71,7 +71,7 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, bool is_norm)
 
     RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", hist->GetName()), "datahist",  
             this->obs_list_, hist);
-    string pdfname(Form("%s_%s", base_name_.Data(), obsname.c_str()));
+    string pdfname(Form("%s_%s", base_name, obsname.c_str()));
     RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
             this->obs_list_, *datahist, 3);
     RooDataHist* newdatahist = nullptr;
@@ -102,34 +102,34 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, bool is_norm)
         auto* newhistpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
                 obs_list_, *expandDataHist, 3);
         delete binning;
+        cout << " return a RooExpandedHistPdf " << endl;
         return newhistpdf;
     }
 }
 
-double Sample::getExpectedValue(){
+void Sample::getExpectedValue(){
     // TODO: need to be tested for 2-d
-    double expected_values = 0;  
+    expected_events = 0;  
     if (!norm_hist) {
-        return expected_values;
+        return ;
     }
     RooRealVar* x_var = dynamic_cast<RooRealVar*>(obs_list_.at(0));
     double xmax = x_var->getMax(), xmin = x_var->getMin();
     int binl = norm_hist->FindFixBin(xmin);
     int binh = norm_hist->FindFixBin(xmax);
     if (obs_list_.getSize() == 1) {
-        expected_values = norm_hist->Integral(binl, binh);
+        expected_events = norm_hist->Integral(binl, binh);
     } 
     else if (obs_list_.getSize() == 2) {
         RooRealVar* y_var = dynamic_cast<RooRealVar*>(obs_list_.at(1));
         double ymax = y_var->getMax(), ymin = y_var->getMin();
         int binyl = norm_hist->FindFixBin(xmin, ymin);
         int binyh = norm_hist->FindFixBin(xmax, ymax);
-        expected_values = norm_hist->Integral(binyl, binyh);
+        expected_events = norm_hist->Integral(binyl, binyh);
     } else {
         cerr << "3D is not supported.. " << endl;
     }
-    cout << "Sample " << name << " expects " << expected_values << " in " << category_name << endl;
-    return expected_values;
+    cout << "Sample " << name << " expects " << expected_events << " in " << category_name << endl;
 }
 
 
@@ -166,6 +166,9 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     if (!norm_hist) {
         cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
     }
+
+    // get expected events
+    getExpectedValue();
     
     if (with_sys) {
         // get shape sys dictionary
@@ -252,6 +255,7 @@ bool Sample::addShapeSys(TString& npName){
     } catch (const out_of_range& oor) {
         return false;
     }
+    if (!norm_hist) return false;
 
     TH1* histUp   = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_up",  norm_hist->GetName())));
     TH1* histDown = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_down",norm_hist->GetName())));
@@ -275,9 +279,17 @@ bool Sample::addShapeSys(TString& npName){
             << shape_varies.size() <<endl;
     }
     paramNames.push_back(string(npName.Data()));
-    RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp,   false);
-    RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, false);
+    RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp,   Form("%s_%s_up",base_name_.Data(), npName.Data()), false);
+    RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, Form("%s_%s_down",base_name_.Data(), npName.Data()), false);
     sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
+    // check if need to add norm sys
+    // if (histUp->Integral() != 1 || histDown->Integral() != 1){
+    // // hard coded...
+    //  if (np_vars.index(Form("alpha_%s", npName.Data())) == -1){
+    //     addNormSys(npName, expected_events * histDown->Integral() ,
+    //                        expected_events * histUp->Integral());
+    //                        }
+    // }
     return true;
 }
 
@@ -288,15 +300,20 @@ bool Sample::addNormSys(TString& npName){
     } catch (const out_of_range& oor) {
         return false;
     }
-    RooRealVar* npVar = Helper::createNuisanceVar(npName.Data());
-    np_vars.add(*npVar);
-    lowValues.push_back(norm_varies ->at(0));
-    highValues.push_back(norm_varies->at(1));
+    addNormSys(npName, norm_varies ->at(0), norm_varies->at(1));
     return true;
 }
 
+void Sample::addNormSys(TString& npName, double low, double up)
+{
+    RooRealVar* npVar = Helper::createNuisanceVar(npName.Data());
+    np_vars.add(*npVar);
+    lowValues.push_back(low);
+    highValues.push_back(up);
+}
+
 RooAbsPdf* Sample::getPDF(){
-    norm_pdf = this->makeHistPdf(this->norm_hist, true);
+    norm_pdf = this->makeHistPdf(this->norm_hist, base_name_.Data(), true);
     if (use_mcc_) 
     {
         string pdfname(Form("%s_normConstraint", norm_pdf->GetName()));
@@ -314,7 +331,7 @@ RooAbsPdf* Sample::getPDF(){
 
 RooAbsReal* Sample::getCoeff(){
    TString varName(Form("n%s", base_name_.Data()));
-   RooRealVar* norm = new RooRealVar(varName.Data(), varName.Data(), this->getExpectedValue());
+   RooRealVar* norm = new RooRealVar(varName.Data(), varName.Data(), expected_events);
    RooArgList prodSet;
    prodSet.add(*norm);
    if (is_signal_) this->addMu(prodSet);
@@ -384,8 +401,10 @@ RooStarMomentMorph* Sample::createRooStarMomentMorph(const string& outputName)
     if (use_mcc_) {
         // copied from WorkspaceToolBase, line 911
         tmpmorph->setUseBinByBinScaleFactors(true);
-        auto* tmppdf = dynamic_cast<RooExpandedDataHist*>(this->norm_pdf);
-        tmppdf ->applyScaleFactor(false);
+        auto* tmppdf = dynamic_cast<RooExpandedHistPdf*>(this->norm_pdf);
+        if (tmppdf) {
+            ((RooExpandedDataHist&)(tmppdf->dataHist())).applyScaleFactor(false);
+        } 
     }
     return tmpmorph;
 }

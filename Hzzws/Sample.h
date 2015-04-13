@@ -76,6 +76,7 @@ class Sample{
         string obsname;
 
         TH1* norm_hist; // norminal histogram
+        double expected_events; // normalization
         //////////////////////////////////////// 
         // PDF systematics
         //////////////////////////////////////// 
@@ -90,6 +91,7 @@ class Sample{
         vector<double> lowValues;
         vector<double> highValues;
         RooArgList np_vars;
+        void addNormSys(TString& npName, double low, double up);
         //////////////////////////////////////// 
         // Constraint terms for each binning systematics
         //////////////////////////////////////// 
@@ -98,8 +100,8 @@ class Sample{
         //////////////////////////////////////// 
         //  Functions...
         //////////////////////////////////////// 
-        RooAbsPdf* makeHistPdf(TH1*, bool is_norm = false);
-        double getExpectedValue();
+        RooAbsPdf* makeHistPdf(TH1*, const char* base_name, bool is_norm = false);
+        void getExpectedValue();
         void addMu(RooArgList& prodSet);
         void getShapeSys();
         void getNormSys();
