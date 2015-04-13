@@ -69,7 +69,7 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
         cout << "total bins: " << binning->numBoundaries() << endl;
     } 
 
-    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", hist->GetName()), "datahist",  
+    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", base_name), "datahist",  
             this->obs_list_, hist);
     string pdfname(Form("%s_%s", base_name, obsname.c_str()));
     RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
@@ -98,7 +98,7 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
     }
     else {
         delete histpdf; // delete old histpdf 
-        auto* expandDataHist = new RooExpandedDataHist(*newdatahist, Form("%s_EDH",hist->GetName()));
+        auto* expandDataHist = new RooExpandedDataHist(*newdatahist, Form("%s_EDH",base_name));
         auto* newhistpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
                 obs_list_, *expandDataHist, 3);
         delete binning;
