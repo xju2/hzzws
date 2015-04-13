@@ -23,9 +23,9 @@ class Combiner{
         virtual ~Combiner();
 
     private:
-        TString m_name;
-        string simpdf_name;
-        string mainSectionName;
+        TString ws_name_; // name of workspace
+        string simpdf_name; // simutaneous pdf's name
+        string mainSectionName; // main section name
         map<string, map<string, string> > all_dic;
         RooArgSet nuisanceSet;
         RooArgSet globalobsSet;

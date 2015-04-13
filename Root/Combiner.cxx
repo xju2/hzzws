@@ -17,11 +17,11 @@
 #include "Hzzws/Helper.h"
 
 Combiner::Combiner(const char* _name, const char* _configName):
-    m_name(_name),
+    ws_name_(_name),
     simpdf_name("simPdf"),
     mainSectionName("main")
 {
-    cout<<" name: "<< m_name << endl;
+    cout<<"workspace name: "<< ws_name_ << endl;
     readConfig(_configName);
 }
 
@@ -72,12 +72,12 @@ void Combiner::readConfig(const char* configName){
     //load samples
     ///////////////////////////////////
     string file_path = "./";
-    try{
+    try {
         file_path = all_dic.at(mainSectionName).at("fileDir");
-    }catch(const out_of_range& oor){
+    } catch (const out_of_range& oor) {
         cout << "'fileDir' not specific, look in current directory" << endl;
     }
-    for(auto& sample : all_dic.at("samples")){
+    for (auto& sample : all_dic.at("samples")) {
         cout << sample.second << endl;
         vector<string> tokens;
         Helper::tokenizeString(sample.second, ',', tokens);
@@ -95,24 +95,25 @@ void Combiner::readConfig(const char* configName){
     //load systematics
     ///////////////////////////////////
     auto& job_dic = all_dic.at(mainSectionName);
-    try{
+    try {
         string NP_list = job_dic.at("NPlist") ;
         sysMan = new SystematicsManager(NP_list.c_str());
-    }catch(const out_of_range& oor){
+    } catch (const out_of_range& oor) {
         sysMan = new SystematicsManager();
-        cerr << "NPlist is not defined" << endl;
+        cerr << "NPlist is not defined, meaning no systematics used" << endl;
     }
 
-    auto* workspace = new RooWorkspace(m_name.Data());
+    auto* workspace = new RooWorkspace(ws_name_.Data());
     ///////////////////////////////////
     //add categories
     ///////////////////////////////////
-    istringstream iss_cat( all_dic.at(mainSectionName)["categories"]);
+    istringstream iss_cat( all_dic.at(mainSectionName)["categories"] );
     string category_name;
     RooCategory channelCat("channelCat", "channelCat");
     map<string, RooAbsPdf*> pdfMap;
     int catIndex = 0;
-    while( getline( iss_cat, category_name, delim )){
+    while( getline( iss_cat, category_name, delim )) 
+    {
         boost::algorithm::trim(category_name);
         cout <<"On category: "<< category_name <<endl;
 

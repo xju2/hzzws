@@ -54,6 +54,12 @@ void tokenizeString(const string& str, char delim, vector<string>& tokens)
     }
 }
 
+void tokenizeString(const char* str, char delim, vector<string>& tokens)
+{
+    string tmp_str(str);
+    tokenizeString(tmp_str, delim, tokens);
+}
+
 void printDic( const map<string, map<string, string> >& all_dic )
 {
     for(auto& kv : all_dic){

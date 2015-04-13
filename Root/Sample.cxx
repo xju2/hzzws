@@ -108,10 +108,10 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, bool is_norm)
 
 double Sample::getExpectedValue(){
     // TODO: need to be tested for 2-d
-    if (!norm_hist) {
-        return 0.0;
-    }
     double expected_values = 0;  
+    if (!norm_hist) {
+        return expected_values;
+    }
     RooRealVar* x_var = dynamic_cast<RooRealVar*>(obs_list_.at(0));
     double xmax = x_var->getMax(), xmin = x_var->getMin();
     int binl = norm_hist->FindFixBin(xmin);
@@ -180,9 +180,9 @@ void Sample::getShapeSys(){
     // return a dictionary for all shape nusiance parameter in specific category
     // to avoid visiting the files many times
     // name convention of histograms are: 
-    // 1. npName_CategoryName_sym, for symmetry error
-    // 2. npName_CategoryName_up, for upward error
-    // 3. npName_CategoryName_down, for downward error
+    // 1. npName-CategoryName-sym, for symmetry error
+    // 2. npName-CategoryName-up, for upward error
+    // 3. npName-CategoryName-down, for downward error
     
     //prepare for the a new category
     shapes_dic.clear();
@@ -193,20 +193,19 @@ void Sample::getShapeSys(){
     TIter next(shape_files_->GetListOfKeys());
     TKey* key;
     while ((key = (TKey*) next())){
-        TString keyname(key->GetName());
-        TObjArray* splitNames = keyname.Tokenize("_");
-        TObjString* tmpStr = dynamic_cast<TObjString*>(splitNames->At(0));
-        TString npName   = tmpStr ->GetString();
-        int ntokens = splitNames->GetEntriesFast(); 
-        tmpStr = dynamic_cast<TObjString*>(splitNames->At(ntokens - 1));
-        TString varyName = tmpStr ->GetString();
+        // use '-' to separate np names and category names
+        vector<string> splitNames;
+        Helper::tokenizeString(key->GetName(), '-', splitNames);
+        TString npName(splitNames.at(0));
+        TString varyName(splitNames.at(2));
 
-        if( keyname.Contains(this->category_name) ){
+        TString keyname(key->GetName());
+        if( keyname.Contains(this->category_name) )
+        { // only load the systematics of current category
             vector<TH1*> shape_vary;
             if (varyName.EqualTo("sym")) {
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
-            }
-            else if (varyName.EqualTo("up")) {
+            } else if (varyName.EqualTo("up")) {
                 // make sure first push_back "up" then "down" !
                 shape_vary.push_back(dynamic_cast<TH1*>(key->ReadObj()));
                 TString& downname = keyname.ReplaceAll("up","down");
@@ -220,7 +219,6 @@ void Sample::getShapeSys(){
             }
             shapes_dic[npName] = shape_vary;
         }
-        delete splitNames;
     }
     cout << shapes_dic.size() << " shape systematics added!" << endl;
 }

@@ -13,10 +13,11 @@ using namespace std;
 namespace Helper{
     // help to read text file
     void readConfig(const char* filename, // input file name
-            char delim, 
+            char delim,  // delimeter
             map<string, map<string, string> >& all_dic // reference to a dictionary
             );
     void tokenizeString(const string& str, char delim, vector<string>& tokens);
+    void tokenizeString(const char* str, char delim, vector<string>& tokens);
     void printDic( const map<string, map<string, string> >& all_dic );
 
     // to have a uniformed name convention for nuisance parameters and global name
