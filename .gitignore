@@ -6,3 +6,5 @@ obj
 test-bin
 lib
 share/*.list
+*log
+*.root
