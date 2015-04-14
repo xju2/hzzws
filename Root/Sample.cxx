@@ -271,8 +271,10 @@ bool Sample::addShapeSys(TString& npName){
         TH1* h1 = shape_varies.at(0);
         TH1* h2 = shape_varies.at(1);
         for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
-            histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h1->GetBinContent(i+1));
-            histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
+            // histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h1->GetBinContent(i+1));
+            // histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
+            histDown->SetBinContent(i+1, h2->GetBinContent(i+1));
+            histUp->SetBinContent(i+1, h1->GetBinContent(i+1));
         }
     } else {
         cerr <<"WARNNING: (Sample::addShapeSys) Check the size of shape varies: " 
