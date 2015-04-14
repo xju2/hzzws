@@ -283,7 +283,7 @@ bool Sample::addShapeSys(TString& npName){
     paramNames.push_back(string(npName.Data()));
     RooAbsPdf* histUpPDF   = this->makeHistPdf(histUp,   Form("%s_%s_up",base_name_.Data(), npName.Data()), false);
     RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, Form("%s_%s_down",base_name_.Data(), npName.Data()), false);
-    sysPdfs.push_back(make_pair(histUpPDF, histDownPDF));
+    sysPdfs.push_back(make_pair(histDownPDF, histUpPDF));
     // check if need to add norm sys
     // if (histUp->Integral() != 1 || histDown->Integral() != 1){
     // // hard coded...
