@@ -10,21 +10,28 @@
 #include "RooWorkspace.h"
 #include "RooArgSet.h"
 #include "RooAbsData.h"
+#include "RooDataSet.h"
 #include "RooAbsPdf.h"
+#include "TFile.h"
 
 using namespace std;
 
-namespace RooStatsHelper{
-     void setDefaultMinimize();
-     void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
-     void setVarFree(RooWorkspace* combined, const char* varName);
-     pair<double,double> getVarVal(RooWorkspace* w, const char* var);
-
-     int minimize(RooNLLVar* nll, RooWorkspace* combWS=NULL);
-     RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc, 
-            const char* channelName);
+class RooStatsHelper{
+public:
+    explicit RooStatsHelper(const char* input_name, const char* ws_name, 
+            const char* mc_name, const char* data_name, const char* mu_name);
+    virtual ~RooStatsHelper();
+    ////////////////////////////////////////////////////////////
+    // static functions
+    ////////////////////////////////////////////////////////////
+    static void setDefaultMinimize();
+    static void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
+    static void setVarFree(RooWorkspace* combined, const char* varName);
+    static pair<double,double> getVarVal(const RooWorkspace& w, const char* var);
+    static int minimize(RooNLLVar* nll, RooWorkspace* combWS=nullptr);
+    static RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc);
     // Make asimov data
-     RooDataSet* makeAsimovData(RooWorkspace* combined, 
+    static RooDataSet* makeAsimovData(RooWorkspace* combined, 
             double muval, 
             double profileMu,  // used when fit data
             const char* muName, // name of POI
@@ -33,7 +40,7 @@ namespace RooStatsHelper{
             bool doprofile    // profile to data?
             );
     // get p0-value
-     double getPvalue(RooWorkspace* combined, 
+    static double getPvalue(RooWorkspace* combined, 
             RooAbsPdf* combPdf, 
             RooStats::ModelConfig* mc, 
             RooAbsData* data, 
@@ -41,7 +48,21 @@ namespace RooStatsHelper{
             const char* condName,
             const char* muName,
             bool isRatioLogLikelihood = false);
-    // sqrt(2* (ln(1+s/b) - b ))
-     double getRoughSig(double s, double b);
-}
+    // sqrt(2* ((s+b)ln(1+s/b) - b ))
+    static double getRoughSig(double s, double b);
+    ////////////////////////////////////////////////////////////
+    // public functions
+    ////////////////////////////////////////////////////////////
+    double getExpectedPvalue();
+    double getObservedPvalue();
+    double getExpectedLimit();
+    double getObservedLimit();
+private:
+    TFile* input_file_;
+    RooWorkspace* ws_;
+    RooStats::ModelConfig* mc_;
+    RooDataSet* obs_data_;
+    RooDataSet* asimov_data_;
+    RooRealVar* poi_;
+};
 #endif
