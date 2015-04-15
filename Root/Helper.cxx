@@ -60,15 +60,6 @@ void tokenizeString(const char* str, char delim, vector<string>& tokens)
     tokenizeString(tmp_str, delim, tokens);
 }
 
-void printDic( const map<string, map<string, string> >& all_dic )
-{
-    for(auto& kv : all_dic){
-        cout << "section: |" << kv.first << "|" << endl;
-        for(auto& sec : kv.second){
-            cout<< "\t |" << sec.first <<"| = |" << sec.second << "|" << endl;
-        }
-    }
-}
 
 RooRealVar* createNuisanceVar(const char* npName)
 {
@@ -94,6 +85,40 @@ RooAbsPdf* createConstraint(const char* npName)
     string _pdfname(Form("alpha_%sConstraint", npName ));
     RooGaussian* gauss = new RooGaussian(_pdfname.c_str(), _pdfname.c_str(), *var, *mean, *sigma);
     return gauss;
+}
+void readNormTable(const char* file_name, 
+        map<string, map<string, double> >& all_norm_dic)
+{
+    cout << "reading normalization table" << endl;
+    ifstream file(file_name, ifstream::in);
+    string line;
+    int lineCount = 0;
+    map<string, double> sample_dic;
+    vector<string> category_names;
+    string section_name;
+    while ( !file.eof() && file.good() )
+    {
+        if (lineCount++ == 0){
+            getline(file, line);
+           tokenizeString(line, '&', category_names);
+        } else {
+            string cat_name;
+            file >> cat_name;
+            if (cat_name == "") continue;
+            int total = (int) category_names.size();
+            double yield;
+            int index = 0;
+            while ( index < total ){
+                char ch;
+                file >> ch >> yield;
+                sample_dic[category_names.at(index)] = yield;
+                index ++;
+            }
+            all_norm_dic[cat_name] = sample_dic;
+            sample_dic.clear();
+        }
+    } 
+    file.close();
 }
 
 }

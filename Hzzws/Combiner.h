@@ -27,6 +27,7 @@ class Combiner{
         string simpdf_name; // simutaneous pdf's name
         string mainSectionName; // main section name
         map<string, map<string, string> > all_dic;
+        map<string, map<string, double> > all_norm_dic_;
         RooArgSet nuisanceSet;
         RooArgSet globalobsSet;
 
@@ -34,7 +35,6 @@ class Combiner{
         map<string, Sample*> allSamples;
         SystematicsManager* sysMan;
         RooArgSet obs;
-        vector<Category*> allCategories;
 
         string findCategoryConfig(string& cat_name, const char* name);
         Sample* getSample(string& name);

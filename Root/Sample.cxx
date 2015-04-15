@@ -35,7 +35,7 @@ Sample::Sample(const char* _name,
 {
     hist_files_ = TFile::Open(Form("%s/%s", _path, _input), "read");
     shape_files_ = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
-    Helper::readConfig(Form("%s/%s", _path, _norm_sys), '=', all_norm_dic);
+    Helper::readConfig(Form("%s/%s", _path, _norm_sys), '=', norm_sys_dic_);
     if(name.find("Signal") != string::npos) is_signal_ = true;
     else is_signal_ = false;
 
@@ -43,6 +43,7 @@ Sample::Sample(const char* _name,
     use_mcc_ = false;
     use_adpt_bin_ = false;
     mc_constraint = nullptr;
+    expected_events = -1;
 }
 
 Sample::~Sample(){
@@ -110,6 +111,12 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
 void Sample::getExpectedValue(){
     // TODO: need to be tested for 2-d
     expected_events = 0;  
+    try {
+        expected_events = normalization_dic_[category_name];
+        return ;
+    } catch (const out_of_range& oor) {
+        // do nothing..
+    }
     if (!norm_hist) {
         return ;
     }
@@ -231,7 +238,7 @@ void Sample::getNormSys(){
     lowValues.clear();
     highValues.clear();
     np_vars.removeAll();
-    for (auto& sec : all_norm_dic) {
+    for (auto& sec : norm_sys_dic_) {
         if (sec.first.compare(category_name) == 0) {
             for (auto& npName : sec.second) {
                 istringstream iss(npName.second);
@@ -428,4 +435,12 @@ void Sample::useAdaptiveBinning(){
 
 RooAbsPdf* Sample::get_mc_constraint(){
     return mc_constraint;
+}
+
+void Sample::setNormalizationMap(const map<string, double>& norm_map)
+{
+    normalization_dic_.clear();
+    for (auto& norm_iter : norm_map){
+        normalization_dic_[norm_iter.first] = norm_iter.second;
+    }
 }

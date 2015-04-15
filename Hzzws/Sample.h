@@ -5,6 +5,8 @@
 #ifndef __HZZWS_SAMPLE_H__
 #define __HZZWS_SAMPLE_H__
 #include <string>
+#include <fstream>
+#include <map>
 
 #include <TFile.h>
 #include <TH1.h>
@@ -18,8 +20,6 @@
 #include <RooStarMomentMorph.h>
 #include <RooMCHistConstraint.h>
 
-#include <fstream>
-#include <map>
 using namespace std;
 class Sample{
 
@@ -43,6 +43,7 @@ class Sample{
         void setChannel(RooArgSet&, const char* channelName, bool with_sys);
         void setMCCThreshold(float thresh); // if thresh < 0, not use mc constraint
         void useAdaptiveBinning(); // use adaptive binning
+        void setNormalizationMap(const map<string, double>& norm_map);
 
         //////////////////////////////////////////////////////////// 
         // Add systematics for the nusiance parameter 'npName'
@@ -66,7 +67,9 @@ class Sample{
         TString base_name_ ; // name_categoryName
         TFile* hist_files_;
         TFile* shape_files_;
-        map<string, map<string, string> > all_norm_dic;
+        map<string, map<string, string> > norm_sys_dic_;
+        map<string, double> normalization_dic_;
+
 
         //////////////////////////////////////// 
         // Following variables are dependent on category
@@ -74,7 +77,6 @@ class Sample{
         string category_name;
         RooArgList obs_list_ ;            
         string obsname;
-
         TH1* norm_hist; // norminal histogram
         double expected_events; // normalization
         //////////////////////////////////////// 

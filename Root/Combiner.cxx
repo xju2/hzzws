@@ -27,46 +27,29 @@ Combiner::Combiner(const char* _name, const char* _configName):
 
 Combiner::~Combiner(){
     delete sysMan;
-    for(auto* cat : allCategories)  delete cat;
     for(auto& sample : allSamples) delete sample.second;
 }
 
 void Combiner::readConfig(const char* configName){
     Helper::readConfig(configName, '=', all_dic);
-    Helper::printDic(all_dic);
+    Helper::printDic<string>(all_dic);
 
     ///////////////////////////////////
-    //load the data
+    // load the data
     ///////////////////////////////////
     //string input_data = all_dic["data"]["file_path"];  //TODO
     //data_file = TFile::Open(input_data.c_str(), "READ"); //TODO
 
 
     ///////////////////////////////////
-    //add observable  (not for 2D yet)
+    // check if normalization table exists
     ///////////////////////////////////
-    string obs_str = all_dic.at(mainSectionName)["observable"];
-    char delim = ',';
-    vector<string> obsPara;
-    Helper::tokenizeString(obs_str, delim, obsPara);
-    // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
-    RooRealVar *var = nullptr;
-    bool use_adaptive_binning = false;
-    if (obsPara.size() > 3){
-        var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
-            atof(obsPara.at(2).c_str()), atof(obsPara.at(3).c_str())); 
-        var->setBins(atoi(obsPara.at(1).c_str()));
-    } 
-    else { 
-       // adaptive binning, only set range
-       // The actual binning will be choosen for different input histograms
-       var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
-               atof(obsPara.at(1).c_str()), atof(obsPara.at(2).c_str()));
-       use_adaptive_binning = true;
+    try {
+        string table_name = all_dic.at(mainSectionName)["normalization"];
+        Helper::readNormTable(table_name.c_str(), all_norm_dic_);
+    } catch (const out_of_range& oor) {
+        cout << "'normalization' not specific, get expected from histogram." << endl;
     }
-    cout << "observable: " << var->GetName() << endl;
-    if(use_adaptive_binning) cout << "use adaptive binning" << endl;
-    obs.add(*var);
 
     ///////////////////////////////////
     //load samples
@@ -87,7 +70,13 @@ void Combiner::readConfig(const char* configName){
         if (tokens.size() > 4){
             newsample->setMCCThreshold(atof(tokens.at(4).c_str()));
         }
-        if(use_adaptive_binning) newsample ->useAdaptiveBinning();
+        if (all_norm_dic_.size() > 0) {
+            try {
+                newsample->setNormalizationMap(all_norm_dic_.at(sample.first));
+            } catch (const out_of_range&) {
+                cout << sample.first << " does not included in normalization table." << endl;
+            }
+        }
         allSamples[sample.first] = newsample;
     }
 
@@ -112,6 +101,7 @@ void Combiner::readConfig(const char* configName){
     RooCategory channelCat("channelCat", "channelCat");
     map<string, RooAbsPdf*> pdfMap;
     int catIndex = 0;
+    char delim = ',';
     while( getline( iss_cat, category_name, delim )) 
     {
         boost::algorithm::trim(category_name);
@@ -123,10 +113,34 @@ void Combiner::readConfig(const char* configName){
         vector<string> mcsets_names;
         Helper::tokenizeString( mcsets, ',', mcsets_names) ;
         Category* category = new Category(category_name);
+        ///////////////////////////////////
+        // add observable  (not for 2D yet)
+        ///////////////////////////////////
+        obs.removeAll();
+        string obs_str = findCategoryConfig(category_name, "observable");
+        vector<string> obsPara;
+        Helper::tokenizeString(obs_str, delim, obsPara);
+        // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
+        RooRealVar *var = nullptr;
+        bool use_adaptive_binning = false;
+        if (obsPara.size() > 3){
+            var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
+                    atof(obsPara.at(2).c_str()), atof(obsPara.at(3).c_str())); 
+            var->setBins(atoi(obsPara.at(1).c_str()));
+        } 
+        else { 
+            // adaptive binning, only set range
+            // The actual binning will be choosen for different input histograms
+            var = new RooRealVar(obsPara.at(0).c_str(), obsPara.at(0).c_str(),
+                    atof(obsPara.at(1).c_str()), atof(obsPara.at(2).c_str()));
+            use_adaptive_binning = true;
+        }
+        obs.add(*var);
         category->setObservables(obs);
 
         for(auto& mcset_name : mcsets_names){
             Sample* sample = getSample(mcset_name);
+            if(use_adaptive_binning) sample ->useAdaptiveBinning();
             if(sample) category->addSample(sample, sysMan);
         }
 
@@ -138,6 +152,7 @@ void Combiner::readConfig(const char* configName){
         RooAbsPdf* final_pdf = category ->getPDF();
         string final_pdf_name(final_pdf->GetName()); 
         // final_pdf->getVal(); // To increast the fitting speed??
+        workspace ->import(*var);
         workspace ->import(*final_pdf, RooFit::RecycleConflictNodes(), RooFit::Silence());
 
         //////////////////////////////////////////////////////////////
@@ -155,7 +170,7 @@ void Combiner::readConfig(const char* configName){
             nuisanceSet.add(*nuisance);
             globalobsSet.add(*global);
         }
-
+        // delete var;
         delete category;
         pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());
     }

@@ -13,7 +13,7 @@ INCLUDES = -I. -I/usr/local/Cellar/boost/1.55.0_2/include
 
 ###################################################################################
 SILENT=
-all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother ./test-bin/pvalue
+all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother ./test-bin/pvalue ./test-bin/testReadNormTable
 
 ./lib/libHzzws.so : obj/Smoother.o  obj/SmoothMan.o obj/Sample.o obj/SystematicsManager.o obj/Category.o obj/Combiner.o obj/Helper.o obj/RooStatsHelper.o obj/BinningUtil.o obj/Checker.o
 	$(SILENT)echo Linking `basename $@`

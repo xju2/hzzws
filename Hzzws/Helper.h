@@ -16,9 +16,20 @@ namespace Helper{
             char delim,  // delimeter
             map<string, map<string, string> >& all_dic // reference to a dictionary
             );
+    void readNormTable(const char* file_name, 
+            map<string, map<string, double> >& all_norm_dic);
     void tokenizeString(const string& str, char delim, vector<string>& tokens);
     void tokenizeString(const char* str, char delim, vector<string>& tokens);
-    void printDic( const map<string, map<string, string> >& all_dic );
+    template<typename T>
+    void printDic( const map<string, map<string, T> >& all_dic )
+    {
+        for(auto& kv : all_dic){
+            cout << "section: |" << kv.first << "|" << endl;
+            for(auto& sec : kv.second){
+                cout<< "\t |" << sec.first <<"| = |" << sec.second << "|" << endl;
+            }
+        }
+    }
 
     // to have a uniformed name convention for nuisance parameters and global name
     RooRealVar* createNuisanceVar(const char* npName);
