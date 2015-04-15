@@ -16,22 +16,15 @@
 
 using namespace std;
 
-class RooStatsHelper{
-public:
-    explicit RooStatsHelper(const char* input_name, const char* ws_name, 
-            const char* mc_name, const char* data_name, const char* mu_name);
-    virtual ~RooStatsHelper();
-    ////////////////////////////////////////////////////////////
-    // static functions
-    ////////////////////////////////////////////////////////////
-    static void setDefaultMinimize();
-    static void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
-    static void setVarFree(RooWorkspace* combined, const char* varName);
-    static pair<double,double> getVarVal(const RooWorkspace& w, const char* var);
-    static int minimize(RooNLLVar* nll, RooWorkspace* combWS=nullptr);
-    static RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc);
+namespace RooStatsHelper{
+    void setDefaultMinimize();
+    void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
+    void setVarFree(RooWorkspace* combined, const char* varName);
+    pair<double,double> getVarVal(const RooWorkspace& w, const char* var);
+    int minimize(RooNLLVar* nll, RooWorkspace* combWS=nullptr);
+    RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc);
     // Make asimov data
-    static RooDataSet* makeAsimovData(RooWorkspace* combined, 
+    RooDataSet* makeAsimovData(RooWorkspace* combined, 
             double muval, 
             double profileMu,  // used when fit data
             const char* muName, // name of POI
@@ -40,7 +33,7 @@ public:
             bool doprofile    // profile to data?
             );
     // get p0-value
-    static double getPvalue(RooWorkspace* combined, 
+    double getPvalue(RooWorkspace* combined, 
             RooAbsPdf* combPdf, 
             RooStats::ModelConfig* mc, 
             RooAbsData* data, 
@@ -49,20 +42,6 @@ public:
             const char* muName,
             bool isRatioLogLikelihood = false);
     // sqrt(2* ((s+b)ln(1+s/b) - b ))
-    static double getRoughSig(double s, double b);
-    ////////////////////////////////////////////////////////////
-    // public functions
-    ////////////////////////////////////////////////////////////
-    double getExpectedPvalue();
-    double getObservedPvalue();
-    double getExpectedLimit();
-    double getObservedLimit();
-private:
-    TFile* input_file_;
-    RooWorkspace* ws_;
-    RooStats::ModelConfig* mc_;
-    RooDataSet* obs_data_;
-    RooDataSet* asimov_data_;
-    RooRealVar* poi_;
-};
+    double getRoughSig(double s, double b);
+}
 #endif

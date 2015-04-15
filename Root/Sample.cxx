@@ -285,13 +285,12 @@ bool Sample::addShapeSys(TString& npName){
     RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, Form("%s_%s_down",base_name_.Data(), npName.Data()), false);
     sysPdfs.push_back(make_pair(histDownPDF, histUpPDF));
     // check if need to add norm sys
-    // if (histUp->Integral() != 1 || histDown->Integral() != 1){
-    // // hard coded...
-    //  if (np_vars.index(Form("alpha_%s", npName.Data())) == -1){
-    //     addNormSys(npName, expected_events * histDown->Integral() ,
-    //                        expected_events * histUp->Integral());
-    //                        }
-    // }
+    if (histUp->Integral() != 1 || histDown->Integral() != 1){
+     if (np_vars.index(Form("alpha_%s", npName.Data())) == -1){
+        addNormSys(npName, expected_events * histDown->Integral() ,
+                           expected_events * histUp->Integral());
+                           }
+    }
     return true;
 }
 

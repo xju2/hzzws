@@ -11,6 +11,7 @@
 #include "RooStats/AsymptoticCalculator.h"
 
 #include "Hzzws/RooStatsHelper.h"
+#include "Hzzws/Checker.h"
 using namespace std;
 int main(int argc, char** argv){
 
@@ -26,7 +27,7 @@ int main(int argc, char** argv){
     if (argc > 2){
         muName = string(argv[2]);
     }
-    RooStatsHelper* stats_helper = new RooStatsHelper(input_name.c_str(), wsName.c_str(),
+    Checker* stats_helper = new Checker(input_name.c_str(), wsName.c_str(),
             mcName.c_str(), dataName.c_str(), muName.c_str());
     double exp_pvalue = stats_helper->getExpectedPvalue();
     cout << "expected p0: " << exp_pvalue << endl;
