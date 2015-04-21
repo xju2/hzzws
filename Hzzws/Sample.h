@@ -19,6 +19,7 @@
 #include <RooAbsReal.h>
 #include <RooStarMomentMorph.h>
 #include <RooMCHistConstraint.h>
+#include "RooBinning.h"
 
 using namespace std;
 class Sample{
@@ -77,6 +78,7 @@ class Sample{
         string category_name;
         RooArgList obs_list_ ;            
         string obsname;
+        RooBinning binning;
         TH1* norm_hist; // norminal histogram
         double expected_events; // normalization
         //////////////////////////////////////// 

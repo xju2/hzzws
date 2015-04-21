@@ -63,7 +63,6 @@ void Combiner::readConfig(const char* configName){
     //load samples
     ///////////////////////////////////
     for (auto& sample : all_dic.at("samples")) {
-        cout << sample.second << endl;
         vector<string> tokens;
         Helper::tokenizeString(sample.second, ',', tokens);
         // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name, 4: useMCConstraint;
@@ -81,6 +80,7 @@ void Combiner::readConfig(const char* configName){
         }
         allSamples[sample.first] = newsample;
     }
+    cout << "Added " << all_dic.at("samples").size() << " Samples" << endl;
 
     ///////////////////////////////////
     //load systematics

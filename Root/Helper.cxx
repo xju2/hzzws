@@ -94,6 +94,7 @@ void readNormTable(const char* file_name,
     ifstream file(file_name, ifstream::in);
     if (!file.is_open()) {
         cerr << "ERROR: cannot open " << file_name << endl;
+        exit(1);
     }
     string line;
     int lineCount = 0;
