@@ -18,6 +18,7 @@
 #include "RooAbsPdf.h"
 #include "RooArgSet.h"
 #include "RooPlot.h"
+#include "RooMsgService.h"
 
 using namespace std;
 
@@ -270,10 +271,11 @@ BinningUtil::makeAsimov1D( const RooAbsPdf& pdf, RooRealVar& obs, const RooBinni
 {
   RooDataHist* binnedAsimov = new RooDataHist("binnedAsimov", "adaptive binned data Asimov", obs, binningName );    
 
+  RooMsgService::instance().setGlobalKillBelow(RooFit::WARNING);
   //double obsmin = obs.getMin();
   //double obsmax = obs.getMax();
 
-  obs.Print();
+  // obs.Print();
   assert (binning.numBins() > 0); //
   assert (obs.getMin() == binning.binLow(0)) ; //
   assert ((obs.getMax()-binning.binHigh( binning.numBins()-1 ))<1e-10) ; //

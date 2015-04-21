@@ -20,7 +20,7 @@
 void RooStatsHelper::setDefaultMinimize(){
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
   ROOT::Math::MinimizerOptions::SetDefaultStrategy(0);
-  ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(-1);
+  ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(0);
 }
 
 int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)

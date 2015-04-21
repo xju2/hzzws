@@ -107,7 +107,8 @@ void Combiner::readConfig(const char* configName){
     while( getline( iss_cat, category_name, delim )) 
     {
         boost::algorithm::trim(category_name);
-        cout <<"On category: "<< category_name <<endl;
+        cout << "===========================" << endl;
+        cout <<"On category: "<< category_name << endl;
 
         string mcsets = findCategoryConfig(category_name, "mcsets");
         if(mcsets == "") continue;

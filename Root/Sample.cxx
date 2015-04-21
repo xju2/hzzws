@@ -103,7 +103,6 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
         auto* newhistpdf = new RooExpandedHistPdf(pdfname.c_str(), pdfname.c_str(), 
                 obs_list_, *expandDataHist, 3);
         delete binning;
-        cout << " return a RooExpandedHistPdf " << endl;
         return newhistpdf;
     }
 }
@@ -159,7 +158,6 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     else {
         cerr << "3D is not supported.. " << endl;
     }
-    cout<<" observables name: "<< obsname << endl;
 
     // set category name
     category_name = string(_ch_name);
