@@ -86,7 +86,7 @@ void Combiner::readConfig(const char* configName){
     auto& job_dic = all_dic.at(mainSectionName);
     try {
         string NP_list = job_dic.at("NPlist") ;
-        sysMan = new SystematicsManager(NP_list.c_str());
+        sysMan = new SystematicsManager(Form("%s/%s", file_path.c_str(), NP_list.c_str()));
     } catch (const out_of_range& oor) {
         sysMan = new SystematicsManager();
         cerr << "NPlist is not defined, meaning no systematics used" << endl;
@@ -152,7 +152,7 @@ void Combiner::readConfig(const char* configName){
         RooAbsPdf* final_pdf = category ->getPDF();
         string final_pdf_name(final_pdf->GetName()); 
         // final_pdf->getVal(); // To increast the fitting speed??
-        workspace ->import(*var);
+        workspace ->import(*var, RooFit::RecycleConflictNodes());
         workspace ->import(*final_pdf, RooFit::RecycleConflictNodes(), RooFit::Silence());
 
         //////////////////////////////////////////////////////////////

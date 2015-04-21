@@ -113,9 +113,9 @@ void Sample::getExpectedValue(){
     expected_events = 0;  
     try {
         expected_events = normalization_dic_[category_name];
-        return ;
+        return;
     } catch (const out_of_range& oor) {
-        // do nothing..
+        cout << "map for normalization does not exist, use histogram" << endl;
     }
     if (!norm_hist) {
         return ;
@@ -171,11 +171,12 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     TString histName(Form("%s_%s", obsname.c_str(), category_name.c_str()));
     norm_hist =(TH1*) hist_files_->Get(histName.Data());
     if (!norm_hist) {
-        cerr << "ERROR (Sample::setChannel): " << histName.Data() << " does not exist" << endl;
+        throw Form("ERROR (Sample::setChannel): histogram %s does not exist", histName.Data());
     }
 
     // get expected events
     getExpectedValue();
+    cout << "expected events: " << expected_events << endl;
     
     if (with_sys) {
         // get shape sys dictionary
