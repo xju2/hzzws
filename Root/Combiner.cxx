@@ -40,13 +40,21 @@ void Combiner::readConfig(const char* configName){
     //string input_data = all_dic["data"]["file_path"];  //TODO
     //data_file = TFile::Open(input_data.c_str(), "READ"); //TODO
 
+    string file_path = "./";
+    try {
+        file_path = all_dic.at(mainSectionName).at("fileDir");
+    } catch (const out_of_range& oor) {
+        cout << "'fileDir' not specific, look in current directory" << endl;
+    }
 
     ///////////////////////////////////
     // check if normalization table exists
     ///////////////////////////////////
     try {
         string table_name = all_dic.at(mainSectionName)["normalization"];
+        table_name = file_path + "/" + table_name; 
         Helper::readNormTable(table_name.c_str(), all_norm_dic_);
+        Helper::printDic<double>(all_norm_dic_);
     } catch (const out_of_range& oor) {
         cout << "'normalization' not specific, get expected from histogram." << endl;
     }
@@ -54,12 +62,6 @@ void Combiner::readConfig(const char* configName){
     ///////////////////////////////////
     //load samples
     ///////////////////////////////////
-    string file_path = "./";
-    try {
-        file_path = all_dic.at(mainSectionName).at("fileDir");
-    } catch (const out_of_range& oor) {
-        cout << "'fileDir' not specific, look in current directory" << endl;
-    }
     for (auto& sample : all_dic.at("samples")) {
         cout << sample.second << endl;
         vector<string> tokens;

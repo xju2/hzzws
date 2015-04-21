@@ -90,7 +90,11 @@ void readNormTable(const char* file_name,
         map<string, map<string, double> >& all_norm_dic)
 {
     cout << "reading normalization table" << endl;
+    cout << "input: " << file_name << endl;
     ifstream file(file_name, ifstream::in);
+    if (!file.is_open()) {
+        cerr << "ERROR: cannot open " << file_name << endl;
+    }
     string line;
     int lineCount = 0;
     map<string, double> sample_dic;
