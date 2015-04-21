@@ -413,6 +413,8 @@ RooStarMomentMorph* Sample::createRooStarMomentMorph(const string& outputName)
             ((RooExpandedDataHist&)(tmppdf->dataHist())).applyScaleFactor(false);
         } 
     }
+    RooArgSet observableSet(obs_list_);
+    tmpmorph->setBinIntegrator(observableSet);
     return tmpmorph;
 }
 

@@ -8,3 +8,4 @@ lib
 share/*.list
 *log
 *.root
+*txt
