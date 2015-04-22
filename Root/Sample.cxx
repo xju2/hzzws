@@ -52,6 +52,23 @@ Sample::~Sample(){
 RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
 {
     RooRealVar* obs =(RooRealVar*) obs_list_.at(0);
+    RooBinning* binning = new RooBinning();
+    if (use_adpt_bin_){
+        // TODO: use un-smoothed histogram 
+        // to determine the binning
+        // to calculate the statistic error
+        // rho: use 0.3, determined by half-half fitting?
+        RooRealVar rho("rho", "rho", 0.3);
+        RooRealVar* obs = (RooRealVar*) obs_list_.at(0);
+        auto* keyspdf = new RooNDKeysPdf("keyspdf", "keyspdf", *obs, *norm_hist, rho,
+                "3am", 3, false, false);
+        TMatrixD kref = keyspdf->getWeights(0);
+        Roo1DMomentMorphFunction f("f", "f", *obs, kref);
+        BinningUtil::getBinning(*binning, *obs,f);
+        obs->setBinning(*binning, "adaptive");
+        delete keyspdf;
+        cout << "total bins: " << binning->numBoundaries() << endl;
+    }
     RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", base_name), "datahist",  
             this->obs_list_, hist);
     string pdfname(Form("%s_%s", base_name, obsname.c_str()));
@@ -61,7 +78,7 @@ RooAbsPdf* Sample::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
     if (use_adpt_bin_) { 
         // create a dataHist with statistic error from un-smoothed histogram
         newdatahist = BinningUtil::makeAsimov1D( *histpdf, *obs, 
-                binning,
+                *binning,
                 "adaptive", 
                 norm_hist // TODO: use un-smoothed histogram
                 );
@@ -123,7 +140,6 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     obs_list_.removeAll();
     // if (mc_constraint != nullptr) delete mc_constraint; // if do so, program crash....
     mc_constraint = nullptr;
-    binning.setRange(0.0, 0.0);
 
     // set observables
     auto* iter =  _obs.createIterator();
@@ -150,22 +166,6 @@ void Sample::setChannel(RooArgSet& _obs, const char* _ch_name, bool with_sys)
     norm_hist =(TH1*) hist_files_->Get(histName.Data());
     if (!norm_hist) {
         exit(2);
-    }
-    if (use_adpt_bin_){
-        // TODO: use un-smoothed histogram 
-        // to determine the binning
-        // to calculate the statistic error
-        // rho: use 0.3, determined by half-half fitting?
-        RooRealVar rho("rho", "rho", 0.3);
-        RooRealVar* obs = (RooRealVar*) obs_list_.at(0);
-        auto* keyspdf = new RooNDKeysPdf("keyspdf", "keyspdf", *obs, *norm_hist, rho,
-                "3am", 3, false, false);
-        TMatrixD kref = keyspdf->getWeights(0);
-        Roo1DMomentMorphFunction f("f", "f", *obs, kref);
-        BinningUtil::getBinning(binning, *obs,f);
-        obs->setBinning(binning, "adaptive");
-        delete keyspdf;
-        cout << "total bins: " << binning.numBoundaries() << endl;
     }
 
     // get expected events

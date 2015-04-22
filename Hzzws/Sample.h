@@ -78,7 +78,7 @@ class Sample{
         string category_name;
         RooArgList obs_list_ ;            
         string obsname;
-        RooBinning binning;
+        // RooBinning binning;
         TH1* norm_hist; // norminal histogram
         double expected_events; // normalization
         //////////////////////////////////////// 
