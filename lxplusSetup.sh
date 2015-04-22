@@ -1,11 +1,12 @@
 #!/bin/bash
 
-export WSDIR=/afs/cern.ch/work/l/lkaplan/workarea/hzzws
+export WSDIR=/afs/cern.ch/user/x/xju/work/h4l/hzzws
 
 ### Make necessary folders
 if [ ! -d $WSDIR/obj ]; then mkdir $WSDIR/obj; fi
 if [ ! -d $WSDIR/lib ]; then mkdir $WSDIR/lib; fi
 if [ ! -d "$WSDIR/test-bin" ]; then mkdir "$WSDIR/test-bin"; fi
+if [ ! -d "$WSDIR/bin" ]; then mkdir "$WSDIR/test-bin"; fi
 if [ ! -d $WSDIR/share ]; then mkdir $WSDIR/share; fi
 if [ ! -d $WSDIR/intermediates ]; then mkdir $WSDIR/intermediates; fi
 

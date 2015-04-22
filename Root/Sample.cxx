@@ -273,8 +273,8 @@ bool Sample::addShapeSys(TString& npName){
         TH1* h1 = shape_varies.at(0);
         TH1* h2 = shape_varies.at(1);
         for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
-            // histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h1->GetBinContent(i+1));
-            // histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*h2->GetBinContent(i+1));
+            // histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1+h1->GetBinContent(i+1)));
+            // histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1+h2->GetBinContent(i+1)));
             histDown->SetBinContent(i+1, h2->GetBinContent(i+1));
             histUp->SetBinContent(i+1, h1->GetBinContent(i+1));
         }
@@ -287,7 +287,7 @@ bool Sample::addShapeSys(TString& npName){
     RooAbsPdf* histDownPDF = this->makeHistPdf(histDown, Form("%s_%s_down",base_name_.Data(), npName.Data()), false);
     sysPdfs.push_back(make_pair(histDownPDF, histUpPDF));
     // check if need to add norm sys
-    if (histUp->Integral() != 1 || histDown->Integral() != 1){
+    if (histUp->Integral() != 0 || histDown->Integral() != 0){
      if (np_vars.index(Form("alpha_%s", npName.Data())) == -1){
         addNormSys(npName, expected_events * histDown->Integral() ,
                            expected_events * histUp->Integral());

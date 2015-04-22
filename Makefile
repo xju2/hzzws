@@ -13,7 +13,7 @@ INCLUDES = -I. -I/usr/local/Cellar/boost/1.55.0_2/include
 
 ###################################################################################
 SILENT=
-all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother ./test-bin/pvalue ./test-bin/testReadNormTable
+all: ./lib/libHzzws.so ./bin/mainCombiner ./test-bin/testSmoother ./bin/pvalue ./test-bin/testReadNormTable
 
 ./lib/libHzzws.so : obj/Smoother.o  obj/SmoothMan.o obj/Sample.o obj/SystematicsManager.o obj/Category.o obj/Combiner.o obj/Helper.o obj/RooStatsHelper.o obj/BinningUtil.o obj/Checker.o
 	$(SILENT)echo Linking `basename $@`
@@ -23,7 +23,7 @@ all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother ./test-bi
 	$(SILENT)echo Linking `basename $@`
 	$(SILENT)$(CXX)  $< $(BINFLAGS) -o $@
 
-./bin/% : ./obj/%.o | ./lib/libHzzws.so
+./bin/% : ./obj/%.o 
 	$(SILENT)echo Linking `basename $@`
 	$(SILENT)$(CXX) -o $@ $< $(BINFLAGS)
 
@@ -32,6 +32,10 @@ all: ./lib/libHzzws.so ./test-bin/mainCombiner ./test-bin/testSmoother ./test-bi
 	$(CXX) $(INCLUDES) $(CXXFLAGS) -g -c $<  -o $@
 
 ./obj/%.o : ./test/%.cxx
+	echo "Compiling $<"
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -g -c $<  -o $@
+
+./obj/%.o : ./utils/%.cxx
 	echo "Compiling $<"
 	$(CXX) $(INCLUDES) $(CXXFLAGS) -g -c $<  -o $@
 
