@@ -1,4 +1,5 @@
 #include "Hzzws/Smoother.h"
+
 #include <RooDataSet.h>
 #include <RooNDKeysPdf.h>
 #include <TFile.h>
@@ -8,55 +9,55 @@
 #include <RooArgList.h>
 #include <RooRealVar.h>
 
-using namespace std;
+#include <algorithm>
 
-Smoother::Smoother(string outname, float rho) {
+Smoother::Smoother(const string& outname, float rho) {
     m_rho = rho;
-    string outputname = string(getenv("WSDIR")) + "/intermediates/" + outname;
-    infile = new TFile();
-    outfile = TFile::Open((outputname + ".root").c_str(), "recreate");
+    outfile = TFile::Open((outname+ ".root").c_str(), "recreate");
 }
 
 Smoother::~Smoother() {
-    if (infile->IsOpen()) infile->Close();
     if (outfile->IsOpen()) outfile->Close();
 }
 
-void Smoother::setInFileSingle(string fname) {
-    if (infile->IsOpen()) infile->Close();
+void Smoother::setInFileSingle(const string& fname) {
     m_files.clear();
-    infile = TFile::Open(fname.c_str(), "read");
+    m_files.push_back(fname);
 }
 
-void Smoother::setInFileMulti(vector<string> files) {
-    if (infile->IsOpen()) infile->Close();
+void Smoother::setInFileMulti(const vector<string>& files) {
     m_files.clear();
-    m_files = files;
+    for (const auto& file_name : files){
+        m_files.push_back(file_name);
+    }
 }
 
-void Smoother::smooth(string oname, string treename, RooArgSet &treeobs, string cut) {
-    if (!infile->IsOpen() && m_files.size() == 0) {
+void Smoother::smooth(const string& oname, const string& treename, 
+        const RooArgSet &treeobs, const string& cut) const 
+{
+    if (m_files.size() < 1) {
         cout << "Error! No input file(s) specified!" << endl;
         return;
     }
 
-    TTree *tcut = new TTree();
-    if (m_files.size() != 0) {
-        TChain *chain = new TChain(treename.c_str());
+    TChain* tcut = new TChain(treename.c_str()); 
+    if (m_files.size() > 0) {
         for (auto &f : m_files) {
-            chain->AddFile(f.c_str());
+            tcut->AddFile(f.c_str());
         }
-        tcut = chain->CopyTree(cut.c_str());
     }
-    else {
-        TTree *tree = (TTree*) infile->Get(treename.c_str());
-        tcut = tree->CopyTree(cut.c_str());
-    }
-
-    //RooRealVar weight("weight", "weight", 0, 100000);
-    //treeobs.add(weight);
-
-    RooDataSet *ds = new RooDataSet(Form("%s_RooDataSet", oname.c_str()), "dataset", treeobs, RooFit::Import(*tcut)/*, RooFit::WeightVar("weight")*/);
+    // hard-code to add Cut
+    RooArgSet obsAndCut(treeobs);
+    RooRealVar* cut_var = new RooRealVar("event_type", "event_type", -10, 10);
+    RooRealVar* cut_var2 = new RooRealVar("prod_type", "prod_type", -10, 10);
+    RooRealVar* weight = new RooRealVar("weight", "weight", 0, 10000);
+    // obsAndCut.add(*weight);
+    obsAndCut.add(*cut_var);
+    obsAndCut.add(*cut_var2);
+    RooDataSet *ds = new RooDataSet(Form("%s_RooDataSet", oname.c_str()), "dataset", 
+            obsAndCut, RooFit::Import(*tcut),  RooFit::Cut(cut.c_str())/*, RooFit::WeightVar("weight")*/);
+    // RooDataSet *ds = new RooDataSet(Form("%s_RooDataSet", oname.c_str()), "dataset", 
+    //         obsAndCut, RooFit::Import(*tcut), RooFit::WeightVar("weight"));
     RooNDKeysPdf *keyspdf = new RooNDKeysPdf(Form("%s_RooNDKeysPdf", oname.c_str()), "keyspdf", treeobs, *ds, "m", m_rho);
 
     RooArgList obsList(treeobs);
@@ -70,6 +71,10 @@ void Smoother::smooth(string oname, string treename, RooArgSet &treeobs, string 
     h1->SetName(oname.c_str());
     outfile->cd();
     h1->Write();
-
+   
+    delete cut_var;
+    delete h1;
+    delete keyspdf;
+    delete ds;
     delete tcut;
 }

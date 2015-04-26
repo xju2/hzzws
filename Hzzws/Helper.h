@@ -18,6 +18,7 @@ namespace Helper{
             );
     void readNormTable(const char* file_name, 
             map<string, map<string, double> >& all_norm_dic);
+    void readScaleFile(const char* file_name, map<string, double>& all_dic);
     void tokenizeString(const string& str, char delim, vector<string>& tokens);
     void tokenizeString(const char* str, char delim, vector<string>& tokens);
     template<typename T>

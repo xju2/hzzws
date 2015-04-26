@@ -52,13 +52,13 @@ void SmoothMan::process() {
             continue;
         }
 
-        string outname = outputname + "_" + sample;
+        string outname = filedir + "/" + outputname + "_" + sample;
 
         vector<string> props;
         Helper::tokenizeString(m_dic["main"][sample], ',', props);
         float rho = atof(props[1].c_str());
 
-        string inf = string(getenv("WSDIR")) + "/share/" + props[0];
+        string inf = filedir + "/" + props[0];
         ifstream f(inf.c_str(), ifstream::in);
         string l;
 
@@ -68,8 +68,8 @@ void SmoothMan::process() {
                 Helper::tokenizeString(l, ' ', p);
                 cout << "File: " << p[0] << endl;
 
-                outname = outname + "_" + p[1];
-                Smoother *sm = new Smoother(outname, rho);
+                string outname_mass = outname + "_" + p[1];
+                Smoother *sm = new Smoother(outname_mass, rho);
                 sm->setInFileSingle(p[0]);
 
                 processSmoother(sm);

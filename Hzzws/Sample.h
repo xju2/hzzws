@@ -49,12 +49,12 @@ class Sample{
         //////////////////////////////////////////////////////////// 
         // Add systematics for the nusiance parameter 'npName'
         //////////////////////////////////////////////////////////// 
-        bool addShapeSys(TString& npName);
+        virtual bool addShapeSys(TString& npName);
         bool addNormSys(TString& npName);
         
         // derivate class may want their implemations of the pdfs and coefficiency
         virtual RooAbsPdf* getPDF();
-        virtual RooAbsReal*  getCoeff();
+        RooAbsReal*  getCoeff();
         virtual RooAbsPdf* get_mc_constraint();
         
     protected: 

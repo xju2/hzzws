@@ -226,6 +226,10 @@ void Combiner::configWorkspace(RooWorkspace* ws)
     {
         string nuisanceName(Form("alpha_%s", np.Data()));
         string globalName  (Form("nom_%s", np.Data()));
+        if (! ws->var(nuisanceName.c_str())) {
+            cout << "ERROR:: no nusiance parameter " << nuisanceName << " in workspace!" << endl;
+            continue;
+        }
         nuisanceSet.add( *ws->var(nuisanceName.c_str()) );
         globalobsSet.add( *ws->var(globalName.c_str()) );
     }

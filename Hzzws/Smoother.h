@@ -13,17 +13,17 @@ using namespace std;
 
 class Smoother{
    public:
-        Smoother(string outname, float rho);
+        Smoother(const string& outname, float rho);
         ~Smoother();
 
-        void setInFileSingle(string fname);
-        void setInFileMulti(vector<string> files);
-        void smooth(string oname, string treename, RooArgSet &treeobs, string cuts);
+        void setInFileSingle(const string& fname);
+        void setInFileMulti(const vector<string>& files);
+        void smooth(const string& oname, const string& treename, const RooArgSet &treeobs, const string& cuts) const ;
     
    private:
         float m_rho = 1.0;
         vector<string> m_files;
-        TFile *infile, *outfile;
+        TFile* outfile;
 };
 
 #endif

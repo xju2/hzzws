@@ -42,6 +42,7 @@ void readConfig(const char* filename, char delim,
         lineCount ++ ;
     }
     all_dic[section_name] = section_dic;  //pick up the last section
+    file.close();
 }
 
 void tokenizeString(const string& str, char delim, vector<string>& tokens)
@@ -124,6 +125,17 @@ void readNormTable(const char* file_name,
         }
     } 
     file.close();
+}
+
+void readScaleFile(const char* file_name, map<string, double>& all_dic)
+{
+   ifstream file(file_name, ifstream::in);
+   string sample_name;
+   double scale_value;
+   while (file >> sample_name >> scale_value){
+        all_dic[sample_name] = scale_value;
+   }
+  file.close(); 
 }
 
 }
