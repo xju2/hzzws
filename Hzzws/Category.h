@@ -1,5 +1,3 @@
-// 
-//
 #ifndef __HZZWS_CATEGORY_H__
 #define __HZZWS_CATEGORY_H__
 
@@ -11,7 +9,7 @@
 #include <RooArgSet.h>
 #include <RooArgList.h>
 
-#include "Hzzws/Sample.h"
+#include "Hzzws/SampleBase.h"
 #include "Hzzws/SystematicsManager.h"
 using namespace std;
 
@@ -23,13 +21,13 @@ class Category {
   explicit Category(const string& label);
   virtual ~Category();
 
-  string label() const { return m_label; }
+  const string& label() const { return m_label; }
   /////////////////////////////////////
   // Add sample to this category, tell sample to work in this category
   // Add systematics in SystematicsManager
   /////////////////////////////////////
-  void addSample(Sample* sample, SystematicsManager* sysMan);
-  void setObservables(RooArgSet& _obs);
+  void addSample(SampleBase* sample, SystematicsManager* sysMan);
+  void setObservables(const RooArgSet& _obs);
 
   // get the final PDF for this category
   RooAbsPdf* getPDF();

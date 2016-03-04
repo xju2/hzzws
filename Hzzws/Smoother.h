@@ -14,15 +14,19 @@ using namespace std;
 class Smoother{
    public:
         Smoother(const string& outname, float rho);
+        Smoother(float rho);
+        Smoother();
         ~Smoother();
 
-        void setInFileSingle(const string& fname);
-        void setInFileMulti(const vector<string>& files);
-        void smooth(const string& oname, const string& treename, const RooArgSet &treeobs, const string& cuts) const ;
-    
+        void smooth(const string& input_name, 
+                const string& oname, 
+                const string& treename, 
+                const RooArgSet& treeobs, 
+                const string& cuts) const ;
+        
+        void SetRho(float rho){ m_rho_ = rho; }
    private:
-        float m_rho = 1.0;
-        vector<string> m_files;
+        float m_rho_;
         TFile* outfile;
 };
 

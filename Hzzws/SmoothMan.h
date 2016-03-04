@@ -22,7 +22,7 @@ class SmoothMan{
         void readConfig(const char *configFile);
 
         void process();
-        void processSmoother(Smoother *sm);
+        void processSmoother(Smoother *sm, const string& );
         void getObs(string cat, string &oname, string &treename, RooArgSet &treeobs); 
 
     private:

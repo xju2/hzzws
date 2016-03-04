@@ -9,15 +9,27 @@
 #include <RooRealVar.h>
 #include <RooGaussian.h>
 
+#include <TChain.h>
+#include <TH1.h>
+#include "TStopwatch.h"
+
+#define log_err(M, ...) fprintf(stdout, "[ERROR] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define log_warn(M, ...) fprintf(stdout, "[Warning] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+
 using namespace std;
 namespace Helper{
+
+
+    /////////////////////////
     // help to read text file
-    void readConfig(const char* filename, // input file name
+    // //////////////////////
+    bool readConfig(const char* filename, // input file name
             char delim,  // delimeter
             map<string, map<string, string> >& all_dic // reference to a dictionary
             );
     void readNormTable(const char* file_name, 
-            map<string, map<string, double> >& all_norm_dic);
+            map<string, map<string, double> >& all_norm_dic, 
+            double lumi = 1.0);
     void readScaleFile(const char* file_name, map<string, double>& all_dic);
     void tokenizeString(const string& str, char delim, vector<string>& tokens);
     void tokenizeString(const char* str, char delim, vector<string>& tokens);
@@ -31,11 +43,17 @@ namespace Helper{
             }
         }
     }
+    void readAcceptancePoly(std::vector<double>& params, const char* prod, const char* chan, const char* sys="Nominal");
 
     // to have a uniformed name convention for nuisance parameters and global name
     RooRealVar* createNuisanceVar(const char* npName);
     RooRealVar* createGlobalVar(const char* npName);
     RooAbsPdf* createConstraint(const char* npName);
+
+    TChain* loader(const string& inFile_name, const string& chain_name);
+    bool IsGoodTH1(TH1* h1);
+    void printStopwatch(TStopwatch& timer);
+    const std::string& getInputPath(std::string i=std::string("."));
 
 }
 #endif

@@ -33,13 +33,13 @@ void SystematicsManager::readNPs(const char* fileName){
 
 }
 
-vector<TString>* SystematicsManager::add_sys(Sample* sample){
+vector<TString>* SystematicsManager::add_sys(SampleBase* sample){
     if (all_nps->size() < 1) return NULL;
     auto* nps_vec = new vector<TString>();
     for(unsigned int i=0; i < all_nps->size(); i++){
         TString& np = all_nps->at(i);
-        bool has_norm = sample -> addNormSys(  np );
-        bool has_shape = sample -> addShapeSys( np );
+        bool has_norm = sample->addNormSys(  np );
+        bool has_shape = sample->addShapeSys( np );
         if(has_shape || has_norm){
             nps_vec ->push_back( np );
         }

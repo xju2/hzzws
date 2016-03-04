@@ -8,11 +8,13 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 #include <algorithm>
+#include <exception>
 
 #include "RooRealVar.h"
 
 #include "Hzzws/Helper.h"
 
+using namespace std;
 SmoothMan::SmoothMan(const char *configFile) {
     readConfig(configFile);
 }
@@ -29,6 +31,13 @@ void SmoothMan::readConfig(const char *configFile) {
 void SmoothMan::process() {
     string filedir = m_dic["main"]["filedir"];
     string outputname = m_dic["main"]["outputname"];
+    string outdir = "./";
+    try{
+        outdir = m_dic["main"]["outdir"];
+    }catch (out_of_range& oor){
+
+    }
+
 
     vector<string> signals;
     Helper::tokenizeString(m_dic["main"]["signals"], ',', signals);
@@ -36,7 +45,7 @@ void SmoothMan::process() {
     Helper::tokenizeString(m_dic["main"]["backgrounds"], ',', backgrounds);
 
     vector<string> allsamples;
-    for (auto &s : signals) allsamples.push_back(s);
+    for (auto &s : signals) {allsamples.push_back(s); cout << s <<endl;}
     for (auto &b : backgrounds) allsamples.push_back(b);
 
     cout << "Smoothing samples." << endl;
@@ -56,49 +65,48 @@ void SmoothMan::process() {
 
         vector<string> props;
         Helper::tokenizeString(m_dic["main"][sample], ',', props);
+        if(props.size() < 2){
+            cout <<"provide rho please!"<< endl;
+            continue;
+        }
         float rho = atof(props[1].c_str());
 
         string inf = filedir + "/" + props[0];
-        ifstream f(inf.c_str(), ifstream::in);
-        string l;
 
         if (find(signals.begin(), signals.end(), sample) != signals.end()) {
+            ifstream f(inf.c_str(), ifstream::in);
+            string l;
             while (getline(f, l)) {
                 vector<string> p;
                 Helper::tokenizeString(l, ' ', p);
                 cout << "File: " << p[0] << endl;
 
-                string outname_mass = outname + "_" + p[1];
+                string outname_mass = outdir+"/"+outname + "_" + p[1]+".root";
                 Smoother *sm = new Smoother(outname_mass, rho);
-                sm->setInFileSingle(p[0]);
 
-                processSmoother(sm);
+                processSmoother(sm, p[0]);
 
                 delete sm;
             }
             f.close();
         }
         else {
-            vector<string> files;
-            while (getline(f, l)) {
-                files.push_back(l);
-            }
-            f.close();
-            
-            Smoother *sm = new Smoother(outname, rho);
-            sm->setInFileMulti(files);
+            string outname_new = outdir+"/"+ outname;
+            Smoother *sm = new Smoother(Form("%s.root",outname_new.c_str()), rho);
 
-            processSmoother(sm);
+            processSmoother(sm, inf);
 
             delete sm;
         }
     }
 }
 
-void SmoothMan::processSmoother(Smoother *sm) {
+void SmoothMan::processSmoother(Smoother *sm, const string& infile_name) 
+{
     string oname, treename;
     RooArgSet treeobs;
-    if (m_dic["main"].count("treename") && m_dic["main"].count("branch") && m_dic["main"].count("observables")) {
+    if (m_dic["main"].count("treename") && m_dic["main"].count("branch") && m_dic["main"].count("observables")) 
+    {
         getObs("main", oname, treename, treeobs);
     }
 
@@ -117,15 +125,16 @@ void SmoothMan::processSmoother(Smoother *sm) {
             string onametemp, treenametemp;
             RooArgSet treeobstemp;
             getObs(c, onametemp, treenametemp, treeobstemp);
-            sm->smooth(onametemp + c, treenametemp, treeobstemp, cut);
+            sm->smooth(infile_name, onametemp + c, treenametemp, treeobstemp, cut);
         }
         else {
-            sm->smooth(oname + c, treename, treeobs, cut);
+            sm->smooth(infile_name, oname + c, treename, treeobs, cut);
         }
     }
 }
 
-void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &treeobs) {
+void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &treeobs) 
+{
     treename = m_dic[cat]["treename"];
 
     vector<string> branches;  
@@ -141,7 +150,8 @@ void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &t
         return;
     }
     
-    for (int i = 0; i < (int) branches.size() / 4; i++) {
+
+    for (int i = 0; i < (int) branches.size(); i=i+4) {
         string obsname = branches[i];
         int obsbins = atoi(branches[i + 1].c_str());
         float obslow = atof(branches[i + 2].c_str());
@@ -149,7 +159,12 @@ void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &t
         RooRealVar *v = new RooRealVar(obsname.c_str(), obsname.c_str(), obslow, obshigh);
         v->setBins(obsbins);
         treeobs.add(*v);
+        if(i==0)
         oname += obs[i] + "_";
+        else
+        oname += obs[i-4+1] + "_";
+    
     }
+
 }
 

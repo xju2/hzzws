@@ -6,7 +6,7 @@
 #define __HZZWS_SYSTEMATICSMANAGER_H__
 
 #include <vector>
-#include "Sample.h"
+#include "SampleBase.h"
 #include <RooWorkspace.h>
 #include <TString.h>
 
@@ -21,7 +21,7 @@ class SystematicsManager{
         SystematicsManager(const char* fileName);
         virtual ~SystematicsManager();
         void readNPs(const char* fileName);
-        vector<TString>* add_sys(Sample*);
+        vector<TString>* add_sys(SampleBase*);
         inline int totalNP(){return all_nps->size();}
         inline vector<TString>* getNP() { return all_nps; }
 };

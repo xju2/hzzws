@@ -9,18 +9,23 @@
 #include "RooCmdArg.h"
 #include "RooRealVar.h"
 #include "RooCategory.h"
+#include "RooRandom.h"
 #include "RooStats/RooStatsUtils.h"
 #include "RooStats/AsymptoticCalculator.h"
+#include "RooStats/ModelConfig.h"
 #include "TH2.h"
 #include "TSystem.h"
 #include "TROOT.h"
+#include "TStopwatch.h"
 
 #include "Hzzws/RooStatsHelper.h"
+#include "Hzzws/Helper.h"
 
 void RooStatsHelper::setDefaultMinimize(){
+  // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
-  ROOT::Math::MinimizerOptions::SetDefaultStrategy(0);
-  ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(0);
+  ROOT::Math::MinimizerOptions::SetDefaultStrategy(1);
+  ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 }
 
 int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
@@ -31,10 +36,12 @@ int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
   if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
 
   int strat = 1;
+  // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
   RooMinimizer minim(*nll);
   minim.optimizeConst(1);
   minim.setStrategy(strat);
   minim.setPrintLevel(printLevel);
+  // minim.setErrorLevel(1E-3);
   
   
   int status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
@@ -119,41 +126,48 @@ void RooStatsHelper::setVarFree(RooWorkspace* combined, const char* varName)
 
 pair<double,double> RooStatsHelper::getVarVal(const RooWorkspace& combined, const char* varName)
 {
-  RooRealVar* mhiggs = dynamic_cast<RooRealVar*>(combined.var(varName));
-  if (mhiggs) {
-    return make_pair(mhiggs ->getVal(),mhiggs->getError());
-  } else {
-    return make_pair(-99999.,-99999.); 
-  }
+    if(varName == NULL) return make_pair(-9999., -9999.);
+    RooRealVar* mhiggs = dynamic_cast<RooRealVar*>(combined.var(varName));
+    if (mhiggs) {
+        return make_pair(mhiggs ->getVal(),mhiggs->getError());
+    } else {
+        return make_pair(-9999.,-9999.); 
+    }
 }
 
 RooNLLVar* RooStatsHelper::createNLL(RooAbsData* _data, RooStats::ModelConfig* _mc)
 {
-  const RooArgSet& nuis = *_mc->GetNuisanceParameters();
-  RooNLLVar* nll = (RooNLLVar*)_mc->GetPdf()->createNLL(*_data, RooFit::Constrain(nuis), 
-          RooFit::GlobalObservables(*_mc->GetGlobalObservables()));
+    const RooArgSet& nuis = *_mc->GetNuisanceParameters();
+    RooNLLVar* nll = (RooNLLVar*)_mc->GetPdf()->createNLL(*_data, 
+            RooFit::Constrain(nuis), 
+            RooFit::GlobalObservables(*_mc->GetGlobalObservables())
+            );
+    // RooCmdArg agg = condVarSet.getSize() > 0?RooFit::ConditionalObservables(condVarSet):RooCmdArg::none(); // for conditional RooFit
+    // RooCmdArg agg = RooCmdArg::none();
 
-  // RooCmdArg agg = condVarSet.getSize() > 0?RooFit::ConditionalObservables(condVarSet):RooCmdArg::none(); // for conditional RooFit
-  // RooCmdArg agg = RooCmdArg::none();
-     
-  return nll;
+    return nll;
 }
 
-double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, RooStats::ModelConfig* mc, 
-        RooAbsData* data, RooArgSet* nuis_tmp, const char* conditionalName, 
+double RooStatsHelper::getPvalue(RooWorkspace* combined, 
+        RooAbsPdf* combPdf, RooStats::ModelConfig* mc, 
+        RooAbsData* data, 
+        const char* conditionalName, 
         const char* muName, bool isRatioLogLikelihood)
 {
     TString dataname(data->GetName());
 
     cout<<"Getting pvalue for "<< data->GetName()<<endl;
     if (data->numEntries() <= 0) {
-        cout<<"total number of events is less than 0: "<< data->numEntries()<<", return 1"<<endl;
+        log_err("total number of events is less than 0: %d", 
+                data->numEntries());
         return 1.0;
     }
     else {
         cout<<"total events: "<< data->numEntries() <<" sumEntries = "<< data ->sumEntries()<<endl;
     }
-
+    if(string(muName).compare("mu_BSM") == 0){
+        combined->var("mu")->setConstant(false);
+    }
     RooRealVar* mu = (RooRealVar*) combined ->var(muName);
     ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 
@@ -165,6 +179,8 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, Roo
         mu ->setConstant(1);
     }
     combined ->loadSnapshot("nominalGlobs");
+    combined ->loadSnapshot("nominalNuis");
+    PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
     RooNLLVar* nll = createNLL(data, mc);
     // look at the global observables
     minimize(nll, combined);
@@ -172,6 +188,7 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined, RooAbsPdf* combPdf, Roo
     cout << "mu_hat for " << data->GetName() << " " << mu->getVal() << 
         " " << mu->getError() << " " << obs_nll_min << endl;
     delete nll;
+    PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
     bool reverse = (mu ->getVal() < 0);
 
     cout<<"Fitting background only hypothesis "<< mu->GetName()<<endl;
@@ -218,8 +235,10 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     const RooArgSet& mc_globs = *mcInWs->GetGlobalObservables();
     const RooArgSet& mc_nuis  = *mcInWs->GetNuisanceParameters();
 
-    // RooAbsPdf*  combPdf = (RooAbsPdf*) mcInWs ->GetPdf();
-    RooDataSet* combData = (RooDataSet*) combined->data(dataname);
+    RooDataSet* combData = NULL;
+    try { 
+        combData = (RooDataSet*) combined->data(dataname);
+    } catch (...) {}
 
     //save the snapshots of nominal parameters, but only if they're not already saved
     if (!combined->loadSnapshot("nominalGlobs"))
@@ -234,7 +253,6 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     }
 
     mu ->setVal(profileMu);
-    //combPdf ->fitTo(*combData,Hesse(false),Minos(false),PrintLevel(0),Extended(), Constrain(nuiSet_tmp));
     if (profileMu > 1)
     { // would profile to the \hat_mu, 
         mu ->setConstant(kFALSE);
@@ -260,11 +278,11 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     while ((
                 glob = (RooRealVar*) glob_iter(),
                 nuis = (RooRealVar*) nuis_iter()
-                ))
+           ))
     {
         if (!nuis || !glob) continue;
-        cout<<" nuisance Name: " << nuis->GetName() << endl;
-        cout<<" global Name: " << glob->GetName() << endl;
+        // cout<<" nuisance Name: " << nuis->GetName() << endl;
+        // cout<<" global Name: " << glob->GetName() << endl;
         glob->setVal(nuis->getVal());
     }
     combined->saveSnapshot(("conditionalGlobs"+muStr.str()).c_str(), mc_globs);
@@ -362,8 +380,8 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     }
 
     RooDataSet* asimovData = new RooDataSet(
-            ("asimovData"+muStr.str()).c_str(),
-            ("asimovData"+muStr.str()).c_str(),
+            ("asimovData_"+muStr.str()).c_str(),
+            ("asimovData_"+muStr.str()).c_str(),
             RooArgSet(obsAndWeight,*channelCat),
             RooFit::Index(*channelCat),
             RooFit::Import(asimovDataMap),
@@ -381,4 +399,391 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
 double RooStatsHelper::getRoughSig(double s, double b)
 {
     return TMath::Sqrt(2*((s+b)*TMath::Log(1+s/b)-s));
+}
+
+void RooStatsHelper::randomizeSet(RooAbsPdf* pdf, RooArgSet* globs, int seed)
+{
+    RooRandom::randomGenerator() -> SetSeed(seed) ; // This step is necessary
+    RooDataSet *one= pdf->generate(*globs, 1);
+    const RooArgSet *values= one->get(0);
+    RooArgSet *allVars=pdf->getVariables();
+    *allVars=*values;
+    delete one;
+    delete allVars;
+}
+
+void RooStatsHelper::SetRooArgSetConst(RooArgSet& argset, bool flag) {
+    TIterator* iter = argset.createIterator();
+    RooRealVar* par = NULL;
+    while( (par = (RooRealVar*) iter->Next()) ){
+        par->setConstant(flag);
+    }
+    delete iter;
+}
+
+void RooStatsHelper::generateToy(RooWorkspace* w , 
+        const char* poi_name, double poi_value, int seed, 
+        map<string, double>& result)
+{
+    ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
+    // map<string,double> result ;
+    cout<<"in generate toys"<<endl;
+    /**
+     * before call this function, 
+     * better to fit to data first
+     * and saved snapshot of NP and GO(global observables)
+     * w->saveSnapshot("bestNP", *(mc->GetNuisanceParameters()));
+     * w->saveSnapshot("bestGO", *(mc->GetGlobalObservables()));
+     ***/
+    try {
+        w->loadSnapshot("bestNP");
+        w->loadSnapshot("bestGO");
+    } catch (...){
+    }
+
+    RooStats::ModelConfig *mc=(RooStats::ModelConfig*)w->obj("ModelConfig");
+    RooSimultaneous* combPdf =  (RooSimultaneous*) mc->GetPdf() ;
+    RooArgSet* nuisanceParameters = (RooArgSet*) mc->GetNuisanceParameters();
+    RooArgSet* globalObservables = (RooArgSet*) mc->GetGlobalObservables();
+
+    RooRealVar* muVar =(RooRealVar*) w ->var(poi_name);
+    double mu_old = muVar->getVal();
+
+    // +++++++++++++++++++++++ Step 1: Generate toy data ++++++++++++++++++++++++
+
+    muVar->setVal(poi_value);
+    muVar->setConstant() ;
+
+    /* Fix nuisance parameters, 
+     * randomize global observables,
+     * make asimov data **/
+    SetRooArgSetConst(*nuisanceParameters);
+    TIter nuis_iter (nuisanceParameters->createIterator());
+    TIter glob_iter (globalObservables->createIterator());
+    RooRealVar* nuis;
+    RooRealVar* glob;
+    while ((
+                glob = (RooRealVar*) glob_iter(),
+                nuis = (RooRealVar*) nuis_iter()
+           ))
+    {
+        if (!nuis || !glob) continue;
+        glob->setVal(nuis->getVal());
+    }
+    // randomizeSet(combPdf, globalObservables, seed); 
+     SetRooArgSetConst(*globalObservables);
+
+    RooArgSet obsAndWeight;
+    obsAndWeight.add(*mc->GetObservables());
+    map<string, RooDataSet*> toyDataMap;
+    RooCategory* channelCat = (RooCategory*)&combPdf->indexCat();
+    TIterator* iter = channelCat->typeIterator() ;
+    RooCatType* tt = NULL;
+    int nrIndices = 0;
+    while((tt=(RooCatType*) iter->Next())) {
+        nrIndices++;
+    }
+    for (int i=0;i<nrIndices;i++){
+        channelCat->setIndex(i);
+        // Get pdf associated with state from simpdf
+        RooAbsPdf* pdftmp = combPdf->getPdf(channelCat->getLabel()) ;
+        if(!pdftmp){
+            cout<<"ERRORs no pdf associated with "<< channelCat ->getLabel()<<endl;
+        }
+        // Generate observables defined by the pdf associated with this state
+
+        RooArgSet* obstmp = pdftmp->getObservables(*mc->GetObservables()) ;
+        RooDataSet* obsDataUnbinned = pdftmp->generate(*obstmp, RooFit::Extended());
+        obsDataUnbinned->Print("v");
+
+        if(TMath::IsNaN(obsDataUnbinned->sumEntries())){
+            cout << "sum entries is nan"<<endl;
+            exit(1);
+        }
+        toyDataMap[string(channelCat->getLabel())] = obsDataUnbinned;//tempData;
+    }
+    RooDataSet* toyData = new RooDataSet(
+            Form("toyData_%d",seed),
+            Form("toyData_%d",seed),
+            RooArgSet(obsAndWeight,*channelCat),
+            RooFit::Index(*channelCat),
+            RooFit::Import(toyDataMap)
+            );
+    toyData->Print();
+    // +++++++++++++++++++++++ Step 2: Fit toy data ++++++++++++++++++++++++
+    // release mh and mu
+    muVar->setConstant(false);
+
+    // release nuisance parameters before fit.
+    SetRooArgSetConst(*nuisanceParameters, false);
+    SetRooArgSetConst(*globalObservables, false);
+    w->loadSnapshot("nominalGlobs");
+    SetRooArgSetConst(*globalObservables, true);
+
+    //perform unconditional fit 
+    RooNLLVar* nll = createNLL(toyData, mc);
+
+    cout<<"unconditional fit"<<endl;
+    int status = minimize(nll, w);
+    result["nll_hat"] = nll->getVal();
+    result["poi_hat"] = muVar->getVal(); 
+    result["status_hat"] = status*1.0;
+    delete nll;
+    // cout<<"finished unconditional fit, running conditional fit(mass)"<<endl;
+
+    cout<<"conditional fit"<<endl;
+    //*******perform conditional fit******
+    muVar->setVal(poi_value);
+    muVar->setConstant(true);
+    RooNLLVar* nllcond =createNLL(toyData, mc);
+    status = minimize(nllcond, w);
+    result["nll_cond"] = nllcond->getVal();
+    result["poi_cond"] = muVar->getVal(); 
+    result["status_cond"] = status*1.0;
+    delete nllcond;
+
+    /* reset */
+    muVar ->setVal(mu_old);
+    delete  toyData;
+    cout<<"out of generating toys"<<endl;
+}
+
+bool RooStatsHelper::ScanPOI(RooWorkspace* ws, 
+        const string& data_name,
+        const string& poi_name, 
+        int total, double low, double hi,
+        TTree* tree)
+{
+    if(!ws || !tree) {
+        log_err("ws or tree is null");
+        return false;
+    }
+    RooStats::ModelConfig*  mc_config = (RooStats::ModelConfig*) ws->obj("ModelConfig");
+    RooDataSet* dataset = (RooDataSet*) ws->data(data_name.c_str());
+    if(!dataset) {
+        log_err("dataset: %s does not exist", data_name.c_str());
+        return false;
+    }
+    RooRealVar* poi = (RooRealVar*) ws->var(poi_name.c_str());
+    if(!poi) {
+        log_err("POI: %s does not exist", poi_name.c_str());
+        return false;
+    }
+    RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mc_config->GetPdf());
+
+    RooRealVar* m4l = (RooRealVar*) ws->var("m4l");
+    m4l->setRange("signal", 118, 129);
+    bool is_fixed_poi = poi->isConstant();
+    poi->setConstant(false);
+
+    double val_nll, val_poi, val_status, obs_sig;
+    tree->Branch("NLL", &val_nll, "NLL/D");
+    tree->Branch("Status", &val_status, "NLL/D");
+    tree->Branch(poi_name.c_str(), &val_poi, Form("%s/D",poi_name.c_str()));
+    tree->Branch("obs_sig", &obs_sig, "obs_sig/D");
+
+    TStopwatch timer;
+    timer.Start();
+    //get best fit
+    RooNLLVar* nll = createNLL(dataset, mc_config);
+    int status = minimize(nll); 
+    timer.Stop();
+    cout<<"One fit takes: "<< endl; Helper::printStopwatch(timer);
+    timer.Reset(); timer.Start();
+
+    val_nll = nll ->getVal();
+    val_poi = poi->getVal();
+    val_status = status;
+    bool do_subrange = false;
+    obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
+    tree->Fill();
+    double step = (hi-low)/total;
+    for(int i = 0; i < total; i++){
+        double poi_value = low + i*step;
+        poi->setVal(poi_value);
+        poi->setConstant(true);
+        minimize(nll);
+        val_nll = nll ->getVal();
+        val_poi = poi->getVal();
+        val_status = status;
+        obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
+        tree->Fill();
+    }
+    if(!is_fixed_poi) poi->setConstant(false);
+    delete nll;
+    return true;
+}
+
+void RooStatsHelper::unfoldConstraints(RooArgSet& initial, RooArgSet& final, RooArgSet& obs, RooArgSet& nuis, int& counter)
+{
+  if (counter > 50)
+  {
+    cout << "ERROR::Couldn't unfold constraints!" << endl;
+    cout << "Initial: " << endl;
+    initial.Print("v");
+    cout << endl;
+    cout << "Final: " << endl;
+    final.Print("v");
+    exit(1);
+  }
+  TIterator* itr = initial.createIterator();
+  RooAbsPdf* pdf;
+  while ((pdf = (RooAbsPdf*)itr->Next()))
+  {
+    RooArgSet nuis_tmp = nuis;
+    RooArgSet constraint_set(*pdf->getAllConstraints(obs, nuis_tmp, false));
+    string className(pdf->ClassName());
+    if (className != "RooGaussian" && className != "RooLognormal" && className != "RooGamma" && className != "RooPoisson" && className != "RooBifurGauss")
+    {
+      counter++;
+      unfoldConstraints(constraint_set, final, obs, nuis, counter);
+    }
+    else
+    {
+      final.add(*pdf);
+    }
+  }
+  delete itr;
+}
+
+void RooStatsHelper::PrintExpEvts(RooSimultaneous* simPdf, 
+        RooRealVar* mu, const RooArgSet* obs)
+{
+    const RooCategory& category = *dynamic_cast<const RooCategory*>(&simPdf->indexCat());
+    TIter cat_iter(category.typeIterator());
+    RooCatType* obj;
+    double old_mu = mu->getVal();
+    while( (obj= (RooCatType*)cat_iter()) ){
+        const char* label_name = obj->GetName();
+        RooAbsPdf* pdf = simPdf->getPdf(label_name);
+        mu->setVal(0.0);
+        double bkg_evts = pdf->expectedEvents(*obs);
+        mu->setVal(old_mu);
+        double all_evts = pdf->expectedEvents(*obs);
+        printf("%s %.3f %.3f %.3f\n", label_name, all_evts, all_evts-bkg_evts, bkg_evts);
+    }
+    mu->setVal(old_mu);
+}
+
+double RooStatsHelper::GetObsNevtsOfSignal(RooSimultaneous* simPdf, RooRealVar* mu, const RooArgSet* obs, bool subrange)
+{
+    if(!simPdf || !obs || !mu){
+        return -999.;
+    }
+    double result = 0;
+    const RooCategory& category = *dynamic_cast<const RooCategory*>(&simPdf->indexCat());
+    TIter cat_iter(category.typeIterator());
+    RooCatType* obj;
+    double old_mu = mu->getVal();
+    while( (obj= (RooCatType*)cat_iter()) ){
+        const char* label_name = obj->GetName();
+        RooAbsPdf* pdf = simPdf->getPdf(label_name);
+        mu->setVal(0.0);
+        double bkg_evts = pdf->expectedEvents(*obs);
+        double fraction_bkg = 1.0;
+        if (subrange) fraction_bkg = pdf->createIntegral(*obs, RooFit::Range("signal"))->getVal();
+        mu->setVal(old_mu);
+        double all_evts = pdf->expectedEvents(*obs);
+        double fraction_all = 1.0;
+        if(subrange) fraction_all = pdf->createIntegral(*obs, RooFit::Range("signal"))->getVal();
+        result += (all_evts*fraction_all - bkg_evts*fraction_bkg);
+    }
+    mu->setVal(old_mu);
+    return result;
+}
+
+
+RooAbsData* RooStatsHelper::generatePseudoData(RooWorkspace* w, const char* poi_name, int seed)
+{
+    cout<<"in generate pseudo-data with seed: "<< seed << ", poi name: " << poi_name << endl;
+    /**
+     * before call this function, 
+     * fit to data first
+     * and saved snapshot of NP and GO(global observables)
+     * w->saveSnapshot("bestNP", *(mc->GetNuisanceParameters()));
+     * w->saveSnapshot("bestGO", *(mc->GetGlobalObservables()));
+     ***/
+    auto* poi = (RooRealVar*) w->var(poi_name);
+    if(!poi) {
+        cout <<"POI is not defined" << endl;
+        return NULL;
+    }
+    double old_poi_val = poi->getVal();
+    try {
+        w->loadSnapshot("condNP");
+        w->loadSnapshot("condGO");
+    } catch (...) {
+        return NULL;
+    }
+
+    RooStats::ModelConfig *mc=(RooStats::ModelConfig*)w->obj("ModelConfig");
+    RooSimultaneous* combPdf =  (RooSimultaneous*) mc->GetPdf() ;
+    RooArgSet* nuisanceParameters = (RooArgSet*) mc->GetNuisanceParameters();
+    RooArgSet* globalObservables = (RooArgSet*) mc->GetGlobalObservables();
+
+    /* Fix nuisance parameters, 
+     * set global observables to np values,
+     * make asimov data **/
+    SetRooArgSetConst(*nuisanceParameters);
+    TIter nuis_iter (nuisanceParameters->createIterator());
+    TIter glob_iter (globalObservables->createIterator());
+    RooRealVar* nuis;
+    RooRealVar* glob;
+    while ((
+                glob = (RooRealVar*) glob_iter(),
+                nuis = (RooRealVar*) nuis_iter()
+           ))
+    {
+        if (!nuis || !glob) continue;
+        glob->setVal(nuis->getVal());
+    }
+    randomizeSet(combPdf, globalObservables, seed);
+    SetRooArgSetConst(*globalObservables);
+    SetRooArgSetConst(*nuisanceParameters, false);
+
+    RooArgSet obsAndWeight;
+    obsAndWeight.add(*mc->GetObservables());
+    map<string, RooDataSet*> toyDataMap;
+    RooCategory* channelCat = (RooCategory*)&combPdf->indexCat();
+    TIterator* iter = channelCat->typeIterator() ;
+    RooCatType* tt = NULL;
+    int nrIndices = 0;
+    while((tt=(RooCatType*) iter->Next())) {
+        nrIndices++;
+    }
+
+    poi->setVal(old_poi_val);
+    for (int i=0;i<nrIndices;i++){
+        channelCat->setIndex(i);
+        // Get pdf associated with state from simpdf
+        RooAbsPdf* pdftmp = combPdf->getPdf(channelCat->getLabel()) ;
+        if(!pdftmp){
+            cout<<"ERRORs no pdf associated with "<< channelCat ->getLabel()<<endl;
+        }
+        // Generate observables defined by the pdf associated with this state
+
+        RooArgSet* obstmp = pdftmp->getObservables(*mc->GetObservables()) ;
+        RooDataSet* obsDataUnbinned = pdftmp->generate(*obstmp, RooFit::Extended());
+        // obsDataUnbinned->Print("v");
+
+        if(TMath::IsNaN(obsDataUnbinned->sumEntries())){
+            cout << "sum entries is nan"<<endl;
+            exit(1);
+        }
+        toyDataMap[string(channelCat->getLabel())] = obsDataUnbinned;//tempData;
+    }
+    RooDataSet* toyData = new RooDataSet(
+            Form("toyData_%d",seed),
+            Form("toyData_%d",seed),
+            RooArgSet(obsAndWeight,*channelCat),
+            RooFit::Index(*channelCat),
+            RooFit::Import(toyDataMap)
+            );
+    try {
+        w->loadSnapshot("nominalNP");
+        w->loadSnapshot("nominalGO");
+    } catch(...) {
+        log_err("save a snapshot of nominal values");
+    }
+    return toyData;
 }

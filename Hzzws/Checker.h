@@ -10,7 +10,8 @@
 #include "RooAbsPdf.h"
 #include "TFile.h"
 
-class Checker{
+class Checker
+{
 public:
     explicit Checker(const char* input_name, const char* ws_name, 
             const char* mc_name, const char* data_name, const char* mu_name);
@@ -19,6 +20,7 @@ public:
     double getObservedPvalue();
     double getExpectedLimit();
     double getObservedLimit();
+    bool CheckNuisPdfConstraint();
 protected:
     TFile* input_file_;
     RooWorkspace* ws_;
@@ -26,5 +28,8 @@ protected:
     RooDataSet* obs_data_;
     RooDataSet* asimov_data_;
     RooRealVar* poi_;
+
+private:
+    bool CheckNuisPdfConstraint(const RooArgSet* nuis, const RooArgSet* pdfConstraint);
 };
 #endif

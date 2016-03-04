@@ -22,7 +22,7 @@ Category::~Category()
 {
 }
 
-void Category::addSample(Sample* sample, SystematicsManager* sysMan){
+void Category::addSample(SampleBase* sample, SystematicsManager* sysMan){
     bool with_sys = sysMan->totalNP() > 0;
     sample ->setChannel(this->obs, this ->m_label.c_str(), with_sys);
     vector<TString>* nps = NULL;
@@ -36,7 +36,13 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
         }
         delete nps;
     }
-    pdfList.add(*(sample->getPDF()));
+    RooAbsPdf* sample_pdf = sample->getPDF();
+    if(!sample_pdf){
+        log_err("Cannot find pdf for %s in %s", sample->get_nick_name().c_str(), m_label.c_str());
+        return;
+    }
+    sample_pdf->Print();
+    pdfList.add(*sample_pdf);
     coefList.add(*(sample->getCoeff()));
     RooMCHistConstraint* mc_constrt = 
         dynamic_cast<RooMCHistConstraint*>(sample->get_mc_constraint());
@@ -52,15 +58,14 @@ void Category::addSample(Sample* sample, SystematicsManager* sysMan){
                     nuisance = (RooAbsReal*) next_nuis()
                     )) 
         {
-            // TODO: to understand....
-            // if (global->isConstant()) continue; // not include the ones below threshold.
+            if (nuisance->isConstant()) continue; // not include the ones below threshold.
             global_obs_list_.add(*global);
             nuisance_obs_list_.add(*nuisance);
         }
     }
 }
 
-void Category::setObservables(RooArgSet& _obs)
+void Category::setObservables(const RooArgSet& _obs)
 {
     TIterator* iter = _obs.createIterator();
     TIter next(iter);
@@ -72,6 +77,7 @@ void Category::setObservables(RooArgSet& _obs)
 
 RooAbsPdf* Category::getPDF(){
     TString pdfname( Form( "modelunc_%s", m_label.c_str() ) );
+    cout << "Total pdf: " << pdfList.getSize() << endl;
     RooAddPdf* sum_pdf = new RooAddPdf(pdfname.Data(), pdfname.Data(), pdfList, coefList);
     // add gaussian constraint for each systematic 
     for(auto& np : nps_set){
