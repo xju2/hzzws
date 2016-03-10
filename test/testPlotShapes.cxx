@@ -14,6 +14,7 @@
 #include <TIterator.h>
 #include <TString.h>
 #include <TSystem.h>
+#include <TStyle.h>
 
 
 #include <stdlib.h>
@@ -88,13 +89,16 @@ int main(int argc, char** argv)
         log_err("data(%s) does not exist", dataName.c_str());
         exit(2);
     }
+    int nbins = 66;
     if(!obs || !mu) {
         file_in->Close();
         return 0;
     } else {
         mu->Print();
         obs->Print();
-        obs->setRange(200., 3500.);
+        obs->setRange(200., 2000.);
+        /*need to pre-define binning!*/
+        obs->setBins(nbins);
     }
 
     /* fix parameters given in option*/
@@ -116,11 +120,12 @@ int main(int argc, char** argv)
 
     /* unconditional fit*/
     auto* nll = RooStatsHelper::createNLL(data, mc);
-    RooFitResult* fit_results = NULL; // RooStatsHelper::minimize(nll, workspace, true);
+    RooFitResult* fit_results = RooStatsHelper::minimize(nll, workspace, true);
     if (!fit_results) {
         log_err("not fit results");
     }
     auto* canvas = new TCanvas("c1", "c1", 600, 600);
+    gStyle->SetMarkerSize(0.5);
     canvas->SetLogy();
 
     const RooCategory& category = *dynamic_cast<const RooCategory*>(&simPdf->indexCat());
@@ -132,7 +137,6 @@ int main(int argc, char** argv)
     }
     
     auto* out_file = TFile::Open("out_hist.root", "recreate");
-    int nbins = 660;
     while( (obj= (RooCatType*)cat_iter()) )
     {
         const char* label_name = obj->GetName();
@@ -140,7 +144,6 @@ int main(int argc, char** argv)
         pdf->Print();
         auto* obs_frame = obs->frame();
         obs_frame->SetMarkerSize(0.015);
-        obs_frame->GetXaxis()->Set(66, 200, 3500);
         int color = 2;
         /* background only plot */
         mu->setVal(0.0);
@@ -152,8 +155,14 @@ int main(int argc, char** argv)
         pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineWidth(2),
-                RooFit::Normalization(10*bkg_evts, RooAbsReal::NumEvent),
+                RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent),
                 add_arg
+                );
+        pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
+                RooFit::LineColor(1),
+                RooFit::LineStyle(2),
+                RooFit::LineWidth(1),
+                RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
                 );
         /* signal + background plot */
         mu->setVal(22.09);
@@ -165,7 +174,7 @@ int main(int argc, char** argv)
         pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
                 RooFit::LineColor(color++),
                 RooFit::LineWidth(2),
-                RooFit::Normalization(10*splusb_evts, RooAbsReal::NumEvent)
+                RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
                 );
 
         /* deal with nuisance parameters */
@@ -218,9 +227,17 @@ int main(int argc, char** argv)
                     RooFit::LineStyle(1), 
                     RooFit::LineColor(1),
                     RooFit::LineWidth(2),
-                    RooFit::Normalization(num_data, RooAbsReal::NumEvent)
+                    RooFit::DrawOption("ep")
+                    // RooFit::Normalization(num_data, RooAbsReal::NumEvent),
+
                     );
             cout <<"Data: " << data_ch->sumEntries() << endl;
+            auto* hist_data = data_ch->createHistogram(Form("hist_data_%s", label_name), *obs, RooFit::Binning(nbins));
+            if(hist_data){
+                out_file->cd();
+                hist_data->Write();
+                delete hist_data;
+            }
         }
         obs_frame->GetYaxis()->SetRangeUser(1E-4, 1E4);
         obs_frame->Draw();
