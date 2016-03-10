@@ -14,6 +14,7 @@
 #include "RooAbsData.h"
 #include "RooDataSet.h"
 #include "RooAbsPdf.h"
+#include "RooFitResult.h"
 #include "TFile.h"
 
 using namespace std;
@@ -23,7 +24,7 @@ namespace RooStatsHelper{
     void setVarfixed(RooWorkspace* ws, const char* varName, double imass);
     void setVarFree(RooWorkspace* combined, const char* varName);
     pair<double,double> getVarVal(const RooWorkspace& w, const char* var);
-    int minimize(RooNLLVar* nll, RooWorkspace* combWS=nullptr);
+    RooFitResult* minimize(RooNLLVar* nll, RooWorkspace* combWS=nullptr, bool save = true);
     RooNLLVar* createNLL(RooAbsData* data, RooStats::ModelConfig* mc);
     // Make asimov data
     void unfoldConstraints(RooArgSet& initial, RooArgSet& final, RooArgSet& obs, RooArgSet& nuis, int& counter);
@@ -67,5 +68,6 @@ namespace RooStatsHelper{
             RooRealVar* mu, const RooArgSet* observables);
     double GetObsNevtsOfSignal(RooSimultaneous* simPdf,
             RooRealVar* mu, const RooArgSet* observables, bool subrange);
+    bool fixGammaTerms(RooStats::ModelConfig* mc) ;
 }
 #endif

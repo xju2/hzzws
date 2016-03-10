@@ -1,4 +1,5 @@
 /*
+ * Plot the shape
  */
 
 #include <RooWorkspace.h>
@@ -7,131 +8,226 @@
 #include <RooPlot.h>
 #include <RooSimultaneous.h>
 #include <RooCategory.h>
+#include <RooStats/ModelConfig.h>
 #include <TFile.h>
 #include <TCanvas.h>
 #include <TIterator.h>
 #include <TString.h>
+#include <TSystem.h>
+
 
 #include <stdlib.h>
 #include <string>
 
+#include "Hzzws/Helper.h"
+#include "Hzzws/RooStatsHelper.h"
+
 using namespace std;
 int main(int argc, char** argv)
 {
-    if (argc > 1 && string(argv[1]) == "help"){
-        cout << argv[0] << " combined.root mu_name" << endl;
+    if ((argc > 1 && string(argv[1]) == "help") ||
+            argc < 5)
+    {
+        cout << argv[0] << " combined.root ws_name mu_name data_name var:value,var:value np1,np2" << endl;
         return 0;
     }
 
-    string input_name("combined.root");
-    string wsName = "combined";
+    string input_name(argv[1]);
+    string wsName(argv[2]);
+    string muName(argv[3]);
+    string dataName(argv[4]);
     string mcName = "ModelConfig";
-    string dataName = "obsData";
-    string muName = "mu";
-    string mhName = "mH";
+
+    map<string, double> fix_var_map;
+    if (argc > 5){
+        string options(argv[5]);
+        cout << options << endl;
+        vector<string> tokens;
+        Helper::tokenizeString(options, ',', tokens);
+        for(auto iter = tokens.begin(); iter != tokens.end(); iter++){
+            string token(*iter);
+            cout << token << endl;
+            size_t delim_pos = token.find(':');
+            if(delim_pos != string::npos){
+                string var_name = token.substr(0, delim_pos);
+                double var_val = atof( token.substr(delim_pos+1, token.size()).c_str());
+                fix_var_map[var_name] = var_val;
+            }
+        }
+    }
+    vector<string> np_names;
+    if (argc > 6) {
+        Helper::tokenizeString(string(argv[6]), ',', np_names);
+    }
+    if (np_names.size() > 0){
+        cout << "total NPs: " << np_names.size() << endl;
+    }
+
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggTwoSidedCBPdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggScalarLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggGravitonLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/FlexibleInterpVarMkII_cc.so");
+    
    
     auto* file_in = TFile::Open(input_name.c_str(), "read");
     auto* workspace = (RooWorkspace*) file_in->Get(wsName.c_str());
-    RooSimultaneous* simPdf = (RooSimultaneous*) workspace->obj("simPdf");
-    RooRealVar* mH = (RooRealVar*) workspace->var(mhName.c_str());
-    RooRealVar* m4l = (RooRealVar*) workspace->var("m4l");
-    RooRealVar* mu = (RooRealVar*) workspace->var("mu");
-    auto* data =(RooDataSet*) workspace->data("obsData");
-    if(!m4l || !mu) {
+    auto* mc = (RooStats::ModelConfig*) workspace->obj(mcName.c_str());
+    RooSimultaneous* simPdf = NULL;
+    try {
+        simPdf = (RooSimultaneous*) mc->GetPdf();
+    } catch (...){
+        cout << "ERROR: no combined pdf in ModelConfig" << endl;
+        exit(1);
+    }
+
+    // const RooArgSet* pois = mc->GetParametersOfInterest();
+    RooRealVar* obs = (RooRealVar*) mc->GetObservables()->first();
+    auto* mu = (RooRealVar*) workspace->var(muName.c_str()); 
+    auto* data =(RooDataSet*) workspace->data(dataName.c_str());
+    if(!data) {
+        log_err("data(%s) does not exist", dataName.c_str());
+        exit(2);
+    }
+    if(!obs || !mu) {
         file_in->Close();
         return 0;
     } else {
         mu->Print();
-        m4l->Print();
+        obs->Print();
+        obs->setRange(200., 3500.);
     }
-    auto* el_res = (RooRealVar*) workspace->var("alpha_ATLAS_EL_RES");
 
+    /* fix parameters given in option*/
+    if (fix_var_map.size() > 0) {
+        for (auto it = fix_var_map.begin(); it != fix_var_map.end(); it++){
+            string var_name (it->first);
+            auto* par = (RooRealVar*) workspace->var(var_name.c_str());
+            if(!par) {
+                log_warn("%s does not exist!", var_name.c_str());
+            } else {
+                log_info("%s fixed to %.2f", var_name.c_str(), it->second);
+                par->setVal(it->second);
+                par->setConstant();
+            }
+        }
+    }
+    // workspace->loadSnapshot("raw");
+    RooStatsHelper::fixGammaTerms(mc);
+
+    /* unconditional fit*/
+    auto* nll = RooStatsHelper::createNLL(data, mc);
+    RooFitResult* fit_results = NULL; // RooStatsHelper::minimize(nll, workspace, true);
+    if (!fit_results) {
+        log_err("not fit results");
+    }
     auto* canvas = new TCanvas("c1", "c1", 600, 600);
-    double m4l_min = 200, m4l_max = 1000;
-    double m4l_step = 50;
-    m4l->setBins(212);
-    if(m4l->getMax() < 150){
-        m4l_min = 124, m4l_max = 126, m4l_step = 0.5;
-        m4l->setBins(60);
-    }
-    if (mH) {
-        mH->Print();
-        mH->setRange(m4l_min, m4l_max);
-    }
+    canvas->SetLogy();
+
     const RooCategory& category = *dynamic_cast<const RooCategory*>(&simPdf->indexCat());
     TIter cat_iter(category.typeIterator());
     RooCatType* obj;
     TList* data_lists = NULL;
-    if(data){
+    if(data) {
         data_lists = data->split(category, true);
     }
-    while( (obj= (RooCatType*)cat_iter()) ){
+    
+    auto* out_file = TFile::Open("out_hist.root", "recreate");
+    int nbins = 660;
+    while( (obj= (RooCatType*)cat_iter()) )
+    {
         const char* label_name = obj->GetName();
         RooAbsPdf* pdf = simPdf->getPdf(label_name);
         pdf->Print();
-        auto* m4l_frame = m4l->frame();
+        auto* obs_frame = obs->frame();
+        obs_frame->SetMarkerSize(0.015);
+        obs_frame->GetXaxis()->Set(66, 200, 3500);
         int color = 2;
+        /* background only plot */
         mu->setVal(0.0);
-        double bkg_evts = pdf->expectedEvents(RooArgSet(*m4l));
-        pdf->plotOn(m4l_frame, RooFit::LineStyle(1), 
+        double bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
+        auto* hist_bkg = (TH1F*) pdf->createHistogram(Form("hist_bkg_%s", label_name), *obs, RooFit::Binning(nbins));
+        hist_bkg->Scale(bkg_evts/hist_bkg->Integral());
+        cout << "[INFO] bkg only: " << bkg_evts << endl;
+        RooCmdArg add_arg = (fit_results==NULL)?RooCmdArg::none():RooFit::VisualizeError(*fit_results);
+        pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineWidth(2),
-                RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
+                RooFit::Normalization(10*bkg_evts, RooAbsReal::NumEvent),
+                add_arg
                 );
-        mu->setVal(5.0);
-        cout << "[INFO] bkg only: " << bkg_evts << " s+B: " << endl;
-        if(mH){
-            for(double ini_mass=m4l_min; ini_mass <= m4l_max; ini_mass += m4l_step)
+        /* signal + background plot */
+        mu->setVal(22.09);
+        double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
+        cout << "[INFO] S+B: " << splusb_evts << endl;
+        auto* hist_sb = (TH1F*) pdf->createHistogram(Form("hist_SB_%s", label_name), *obs, RooFit::Binning(nbins));
+        hist_sb->Scale(splusb_evts/hist_sb->Integral());
+
+        pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
+                RooFit::LineColor(color++),
+                RooFit::LineWidth(2),
+                RooFit::Normalization(10*splusb_evts, RooAbsReal::NumEvent)
+                );
+
+        /* deal with nuisance parameters */
+        if(np_names.size() > 0)
+        {
+            double sigma_level = 1.0;
+            for(auto itr = np_names.begin(); itr != np_names.end(); itr++)
             {
-                mH->setVal(ini_mass);
-                double splusb_evts = pdf->expectedEvents(RooArgSet(*m4l));
-                cout << "[INFO] mH("<< ini_mass <<"): " << splusb_evts ;
-                pdf->plotOn(m4l_frame, RooFit::LineStyle(7), 
+                string np_name(*itr);
+                auto* np_var = (RooRealVar*) workspace->var(np_name.c_str());
+                if(!np_var) continue;
+                np_var->setVal(1.0);
+
+                splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
+                cout << "[INFO] S+B ("<< sigma_level << " sigma up): " << splusb_evts << endl;
+                auto* hist_sb_2s_up = (TH1F*) pdf->createHistogram(Form("hist_sb_2up_%s", label_name), *obs, RooFit::Binning(nbins));
+                if(hist_sb_2s_up){
+                    hist_sb_2s_up->Scale(splusb_evts/hist_sb_2s_up->Integral());
+                    out_file->cd();
+                    hist_sb_2s_up->Write();
+                    delete hist_sb_2s_up;
+                }
+                pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
                         RooFit::LineColor(color++),
                         RooFit::LineWidth(2),
                         RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
                         );
+                // bkg only
+                mu->setVal(0);
+                bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
+                auto* hist_bkg_2sup = (TH1F*) pdf->createHistogram(Form("hist_bonly_2up_%s", label_name), *obs, RooFit::Binning(nbins));
+                if(hist_bkg_2sup){
+                    hist_bkg_2sup->Scale(bkg_evts/hist_bkg_2sup->Integral());
+                    out_file->cd();
+                    hist_bkg_2sup->Write();
+                    delete hist_bkg_2sup;
+                }
+                np_var->setVal(0);
             }
-        } else {
-            double splusb_evts = pdf->expectedEvents(RooArgSet(*m4l));
-            cout << "[INFO] S+B: " << splusb_evts << endl;
-            pdf->plotOn(m4l_frame, RooFit::LineStyle(7), 
-                    RooFit::LineColor(color++),
-                    RooFit::LineWidth(2),
-                    RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
-                    );
         }
-        if(el_res){
-            el_res->setVal(3.0);
-            double splusb_evts = pdf->expectedEvents(RooArgSet(*m4l));
-            cout << "[INFO] S+B (3sigma up): " << splusb_evts << endl;
-            pdf->plotOn(m4l_frame, RooFit::LineStyle(7), 
-                    RooFit::LineColor(color++),
-                    RooFit::LineWidth(2),
-                    RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
-                    );
-            el_res->setVal(0);
-        }
-        auto* el_eff = (RooRealVar*) workspace->var("alpha_ATLAS_EL_EFF_RECO");
-        if(el_eff){
-            el_eff->setVal(3.0);
-            double splusb_evts = pdf->expectedEvents(RooArgSet(*m4l));
-            cout << "[INFO] S+B (3sigma: ATLAS_EL_EFF_RECO): " << splusb_evts << endl;
-            el_eff->setVal(0.0);
-        }
-        //if(data_lists)
-        if(false)
+        out_file->cd();
+        hist_bkg->Write();
+        hist_sb->Write();
+        
+        if(data)
         {
             auto* data_ch = (RooDataSet*) data_lists->At(obj->getVal());
-            data_ch->plotOn(m4l_frame, RooFit::LineStyle(1), 
+            double num_data = data_ch->sumEntries();
+            auto data_frame = data_ch->plotOn(obs_frame, 
+                    RooFit::LineStyle(1), 
                     RooFit::LineColor(1),
-                    RooFit::LineWidth(2)
+                    RooFit::LineWidth(2),
+                    RooFit::Normalization(num_data, RooAbsReal::NumEvent)
                     );
+            cout <<"Data: " << data_ch->sumEntries() << endl;
         }
-        m4l_frame->Draw();
-        canvas ->SaveAs(Form("pdf/pdf_vary_%s.pdf", label_name));
-        delete m4l_frame;
+        obs_frame->GetYaxis()->SetRangeUser(1E-4, 1E4);
+        obs_frame->Draw();
+        canvas->SaveAs(Form("pdf/pdf_vary_%s.pdf", label_name));
+        delete obs_frame;
     }
+    out_file->Close();
     delete canvas;
 
     file_in->Close();

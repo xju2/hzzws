@@ -13,8 +13,11 @@
 #include <TH1.h>
 #include "TStopwatch.h"
 
+#ifndef log_err
 #define log_err(M, ...) fprintf(stdout, "[ERROR] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define log_warn(M, ...) fprintf(stdout, "[Warning] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define log_info(M, ...) fprintf(stdout, "[INFO] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#endif
 
 using namespace std;
 namespace Helper{

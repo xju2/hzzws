@@ -28,10 +28,10 @@ int main(int argc, char** argv)
         return 0;
     }
     // Load additional class
-    gSystem->Load("src/HggTwoSidedCBPdf_cc.so");
-    gSystem->Load("src/HggScalarLineShapePdf_cc.so");
-    gSystem->Load("src/HggGravitonLineShapePdf_cc.so");
-    gSystem->Load("src/FlexibleInterpVarMkII_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggTwoSidedCBPdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggScalarLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggGravitonLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/FlexibleInterpVarMkII_cc.so");
 
     RooStatsHelper::setDefaultMinimize();
     string input_name("combined.root");

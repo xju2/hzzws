@@ -28,7 +28,7 @@ void RooStatsHelper::setDefaultMinimize(){
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 }
 
-int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
+RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS, bool save)
 {
   int printLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
   // RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
@@ -96,8 +96,8 @@ int RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS)
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer(minType.c_str());
   }
-  if(status != 0 && status != 1) cout<<"Error: the fit does not converge"<<endl;
-  return status;
+  if (save && status == 0) return minim.save();
+  else return NULL;
 }
 
 void RooStatsHelper::setVarfixed(RooWorkspace* combined, const char* varName, double value)
@@ -524,7 +524,7 @@ void RooStatsHelper::generateToy(RooWorkspace* w ,
     RooNLLVar* nll = createNLL(toyData, mc);
 
     cout<<"unconditional fit"<<endl;
-    int status = minimize(nll, w);
+    int status = (minimize(nll, w) == NULL)?0:1;
     result["nll_hat"] = nll->getVal();
     result["poi_hat"] = muVar->getVal(); 
     result["status_hat"] = status*1.0;
@@ -536,7 +536,7 @@ void RooStatsHelper::generateToy(RooWorkspace* w ,
     muVar->setVal(poi_value);
     muVar->setConstant(true);
     RooNLLVar* nllcond =createNLL(toyData, mc);
-    status = minimize(nllcond, w);
+    status = (minimize(nllcond, w) == NULL)?0:1;
     result["nll_cond"] = nllcond->getVal();
     result["poi_cond"] = muVar->getVal(); 
     result["status_cond"] = status*1.0;
@@ -586,7 +586,7 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
     timer.Start();
     //get best fit
     RooNLLVar* nll = createNLL(dataset, mc_config);
-    int status = minimize(nll); 
+    int status = (minimize(nll) == NULL)?0:1 ; 
     timer.Stop();
     cout<<"One fit takes: "<< endl; Helper::printStopwatch(timer);
     timer.Reset(); timer.Start();
@@ -786,4 +786,17 @@ RooAbsData* RooStatsHelper::generatePseudoData(RooWorkspace* w, const char* poi_
         log_err("save a snapshot of nominal values");
     }
     return toyData;
+}
+
+bool RooStatsHelper::fixGammaTerms(RooStats::ModelConfig* mc) 
+{
+    RooArgSet nuis(*mc->GetNuisanceParameters());
+    TIter iter(nuis.createIterator());
+    RooRealVar* par = NULL;
+    while( (par = (RooRealVar*) iter()) ) {
+        if(string(par->GetName()).find("gamma_stat") != string::npos) {
+            par->setConstant();
+        }
+    }
+    return true;
 }
