@@ -28,14 +28,16 @@ void RooStatsHelper::setDefaultMinimize(){
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 }
 
-RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS, bool save)
+RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll, 
+        RooWorkspace* combWS, 
+        bool save, const RooArgSet* minosSet)
 {
   int printLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
   // RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
 
   if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
 
-  int strat = 1;
+  int strat = 0;
   // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
   RooMinimizer minim(*nll);
   minim.optimizeConst(1);
@@ -95,6 +97,9 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll, RooWorkspace* combWS, boo
     }
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer(minType.c_str());
+  }
+  if (minosSet != NULL) {
+      minim.minos(*minosSet);
   }
   if (save && status == 0) return minim.save();
   else return NULL;
@@ -165,10 +170,15 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
     else {
         cout<<"total events: "<< data->numEntries() <<" sumEntries = "<< data ->sumEntries()<<endl;
     }
+
+    RooRealVar* mu = (RooRealVar*) combined ->var(muName);
+    if (!mu){
+        log_err("%s does not exist", mu->GetName());
+        return -9999;
+    }
     if(string(muName).compare("mu_BSM") == 0){
         combined->var("mu")->setConstant(false);
     }
-    RooRealVar* mu = (RooRealVar*) combined ->var(muName);
     ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 
     if(!isRatioLogLikelihood){

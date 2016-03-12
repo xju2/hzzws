@@ -21,13 +21,11 @@ Checker::Checker(const char* input_name, const char* ws_name,
    asimov_data_ = nullptr;  // create it when needed
    poi_ = (RooRealVar*) ws_->var(mu_name);
    if(poi_){
-       //poi_->setVal(1.0);
-       //poi_->setRange(0, 20);
+       poi_->Print();
    }
    auto* mu = (RooRealVar*) ws_->var("mu_BSM");
    if(mu){
-       // mu->setRange(0, 3);
-       // mu->setVal(0.79);
+       mu->Print();
    }
    auto* mu_h = (RooRealVar*) ws_->var("mu");
    if(mu_h){
@@ -45,8 +43,11 @@ Checker::Checker(const char* input_name, const char* ws_name,
            mH->setVal(455.0);
        }
    }
+   // fixGammaTerms
+   // RooStatsHelper::fixGammaTerms(mc_);
    ws_->saveSnapshot("nominalGlobs", *mc_->GetGlobalObservables());
    ws_->saveSnapshot("nominalNuis", *mc_->GetNuisanceParameters());
+
 }
 
 Checker::~Checker()

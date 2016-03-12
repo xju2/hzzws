@@ -15,6 +15,8 @@
 #include <TString.h>
 #include <TSystem.h>
 #include <TStyle.h>
+#include <TGraphAsymmErrors.h>
+#include <TColor.h>
 
 
 #include <stdlib.h>
@@ -29,7 +31,7 @@ int main(int argc, char** argv)
     if ((argc > 1 && string(argv[1]) == "help") ||
             argc < 5)
     {
-        cout << argv[0] << " combined.root ws_name mu_name data_name var:value,var:value np1,np2" << endl;
+        cout << argv[0] << " combined.root ws_name mu_name data_name bonly with_data var:value,var:value np1,np2" << endl;
         return 0;
     }
 
@@ -38,10 +40,23 @@ int main(int argc, char** argv)
     string muName(argv[3]);
     string dataName(argv[4]);
     string mcName = "ModelConfig";
+    bool is_bonly = false;
+    int opt_id = 5;
+    if (argc > opt_id) {
+        is_bonly = (bool) atoi(argv[opt_id]);
+    }
+    opt_id ++;
+
+    bool with_data = false;
+    if (argc > opt_id) {
+        with_data = (bool) atoi(argv[opt_id]);
+    }
+    opt_id ++;
 
     map<string, double> fix_var_map;
-    if (argc > 5){
-        string options(argv[5]);
+    if (argc > opt_id)
+    {
+        string options(argv[opt_id]);
         cout << options << endl;
         vector<string> tokens;
         Helper::tokenizeString(options, ',', tokens);
@@ -56,13 +71,17 @@ int main(int argc, char** argv)
             }
         }
     }
+    opt_id ++;
+
     vector<string> np_names;
-    if (argc > 6) {
-        Helper::tokenizeString(string(argv[6]), ',', np_names);
+    if (argc > opt_id) {
+        Helper::tokenizeString(string(argv[opt_id]), ',', np_names);
     }
+    opt_id ++;
     if (np_names.size() > 0){
         cout << "total NPs: " << np_names.size() << endl;
     }
+
 
     gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggTwoSidedCBPdf_cc.so");
     gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggScalarLineShapePdf_cc.so");
@@ -115,14 +134,27 @@ int main(int argc, char** argv)
             }
         }
     }
+    // summary of options
+    cout<<" Input: " << input_name << endl;
+    cout<<" wsName: " << wsName << endl;
+    cout<<" muName: " << muName << endl;
+    cout<<" dataName: " << dataName << endl;
+    cout<<" bonly: " << is_bonly << endl;
+    cout<<" withData: " << with_data << endl;
+    cout<<" NP size: " << np_names.size() << endl;
     // workspace->loadSnapshot("raw");
-    RooStatsHelper::fixGammaTerms(mc);
+    // RooStatsHelper::fixGammaTerms(mc);
 
     /* unconditional fit*/
+    if(is_bonly) {
+        mu->setVal(0);
+        mu->setConstant();
+    }
+
     auto* nll = RooStatsHelper::createNLL(data, mc);
     RooFitResult* fit_results = RooStatsHelper::minimize(nll, workspace, true);
     if (!fit_results) {
-        log_err("not fit results");
+        log_err("no fit results");
     }
     auto* canvas = new TCanvas("c1", "c1", 600, 600);
     gStyle->SetMarkerSize(0.5);
@@ -141,10 +173,10 @@ int main(int argc, char** argv)
     {
         const char* label_name = obj->GetName();
         RooAbsPdf* pdf = simPdf->getPdf(label_name);
-        pdf->Print();
+        // pdf->Print();
         auto* obs_frame = obs->frame();
         obs_frame->SetMarkerSize(0.015);
-        int color = 2;
+        int color = 4;
         /* background only plot */
         mu->setVal(0.0);
         double bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
@@ -152,9 +184,11 @@ int main(int argc, char** argv)
         hist_bkg->Scale(bkg_evts/hist_bkg->Integral());
         cout << "[INFO] bkg only: " << bkg_evts << endl;
         RooCmdArg add_arg = (fit_results==NULL)?RooCmdArg::none():RooFit::VisualizeError(*fit_results);
+        add_arg.Print();
         pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineWidth(2),
+                RooFit::FillColor(kGreen),
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent),
                 add_arg
                 );
@@ -165,17 +199,20 @@ int main(int argc, char** argv)
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
                 );
         /* signal + background plot */
-        mu->setVal(22.09);
-        double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
-        cout << "[INFO] S+B: " << splusb_evts << endl;
-        auto* hist_sb = (TH1F*) pdf->createHistogram(Form("hist_SB_%s", label_name), *obs, RooFit::Binning(nbins));
-        hist_sb->Scale(splusb_evts/hist_sb->Integral());
+        TH1F* hist_sb = NULL;
+        if(!is_bonly){
+            mu->setVal(22.09);
+            double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
+            cout << "[INFO] S+B: " << splusb_evts << endl;
+            hist_sb = (TH1F*) pdf->createHistogram(Form("hist_SB_%s", label_name), *obs, RooFit::Binning(nbins));
+            hist_sb->Scale(splusb_evts/hist_sb->Integral());
 
-        pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
-                RooFit::LineColor(color++),
-                RooFit::LineWidth(2),
-                RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
-                );
+            pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
+                    RooFit::LineColor(color++),
+                    RooFit::LineWidth(2),
+                    RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
+                    );
+        }
 
         /* deal with nuisance parameters */
         if(np_names.size() > 0)
@@ -188,7 +225,7 @@ int main(int argc, char** argv)
                 if(!np_var) continue;
                 np_var->setVal(1.0);
 
-                splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
+                double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
                 cout << "[INFO] S+B ("<< sigma_level << " sigma up): " << splusb_evts << endl;
                 auto* hist_sb_2s_up = (TH1F*) pdf->createHistogram(Form("hist_sb_2up_%s", label_name), *obs, RooFit::Binning(nbins));
                 if(hist_sb_2s_up){
@@ -217,19 +254,18 @@ int main(int argc, char** argv)
         }
         out_file->cd();
         hist_bkg->Write();
-        hist_sb->Write();
-        
-        if(data)
+        if(hist_sb) hist_sb->Write();
+
+        if(data && with_data)
         {
             auto* data_ch = (RooDataSet*) data_lists->At(obj->getVal());
-            double num_data = data_ch->sumEntries();
-            auto data_frame = data_ch->plotOn(obs_frame, 
+            // double num_data = data_ch->sumEntries();
+            data_ch->plotOn(obs_frame, 
                     RooFit::LineStyle(1), 
                     RooFit::LineColor(1),
                     RooFit::LineWidth(2),
                     RooFit::DrawOption("ep")
-                    // RooFit::Normalization(num_data, RooAbsReal::NumEvent),
-
+                    // RooFit::Normalization(num_data, RooAbsReal::NumEvent)
                     );
             cout <<"Data: " << data_ch->sumEntries() << endl;
             auto* hist_data = data_ch->createHistogram(Form("hist_data_%s", label_name), *obs, RooFit::Binning(nbins));
@@ -242,6 +278,8 @@ int main(int argc, char** argv)
         obs_frame->GetYaxis()->SetRangeUser(1E-4, 1E4);
         obs_frame->Draw();
         canvas->SaveAs(Form("pdf/pdf_vary_%s.pdf", label_name));
+        out_file->cd();
+        obs_frame->Write();
         delete obs_frame;
     }
     out_file->Close();
