@@ -37,7 +37,7 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll,
 
   if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
 
-  int strat = 0;
+  int strat = 1;
   // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
   RooMinimizer minim(*nll);
   minim.optimizeConst(1);
@@ -798,13 +798,13 @@ RooAbsData* RooStatsHelper::generatePseudoData(RooWorkspace* w, const char* poi_
     return toyData;
 }
 
-bool RooStatsHelper::fixGammaTerms(RooStats::ModelConfig* mc) 
+bool RooStatsHelper::fixTermsWithPattern(RooStats::ModelConfig* mc, const char* pat) 
 {
     RooArgSet nuis(*mc->GetNuisanceParameters());
     TIter iter(nuis.createIterator());
     RooRealVar* par = NULL;
     while( (par = (RooRealVar*) iter()) ) {
-        if(string(par->GetName()).find("gamma_stat") != string::npos) {
+        if(string(par->GetName()).find(pat) != string::npos) {
             par->setConstant();
         }
     }

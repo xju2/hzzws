@@ -68,6 +68,6 @@ namespace RooStatsHelper{
             RooRealVar* mu, const RooArgSet* observables);
     double GetObsNevtsOfSignal(RooSimultaneous* simPdf,
             RooRealVar* mu, const RooArgSet* observables, bool subrange);
-    bool fixGammaTerms(RooStats::ModelConfig* mc) ;
+    bool fixTermsWithPattern(RooStats::ModelConfig* mc, const char* pat ) ;
 }
 #endif

@@ -9,6 +9,8 @@
 #include <RooSimultaneous.h>
 #include <RooCategory.h>
 #include <RooStats/ModelConfig.h>
+#include <RooCurve.h>
+
 #include <TFile.h>
 #include <TCanvas.h>
 #include <TIterator.h>
@@ -82,11 +84,10 @@ int main(int argc, char** argv)
         cout << "total NPs: " << np_names.size() << endl;
     }
 
-
-    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggTwoSidedCBPdf_cc.so");
-    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggScalarLineShapePdf_cc.so");
-    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/HggGravitonLineShapePdf_cc.so");
-    gSystem->Load("/afs/cern.ch/user/x/xju/work/lee2d/src/FlexibleInterpVarMkII_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/public/src/HggTwoSidedCBPdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/public/src/HggScalarLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/public/src/HggGravitonLineShapePdf_cc.so");
+    gSystem->Load("/afs/cern.ch/user/x/xju/public/src/FlexibleInterpVarMkII_cc.so");
     
    
     auto* file_in = TFile::Open(input_name.c_str(), "read");
@@ -108,14 +109,15 @@ int main(int argc, char** argv)
         log_err("data(%s) does not exist", dataName.c_str());
         exit(2);
     }
-    int nbins = 66;
+    double max_obs = 2000, min_obs = 200;
+    int nbins = (int) (max_obs-min_obs)/20;
     if(!obs || !mu) {
         file_in->Close();
         return 0;
     } else {
         mu->Print();
         obs->Print();
-        obs->setRange(200., 2000.);
+        obs->setRange(min_obs, max_obs);
         /*need to pre-define binning!*/
         obs->setBins(nbins);
     }
@@ -142,8 +144,10 @@ int main(int argc, char** argv)
     cout<<" bonly: " << is_bonly << endl;
     cout<<" withData: " << with_data << endl;
     cout<<" NP size: " << np_names.size() << endl;
-    // workspace->loadSnapshot("raw");
-    // RooStatsHelper::fixGammaTerms(mc);
+
+    workspace->loadSnapshot("ucmles_0");
+    RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat");
+    RooStatsHelper::fixTermsWithPattern(mc, "ATLAS_");
 
     /* unconditional fit*/
     if(is_bonly) {
@@ -275,10 +279,23 @@ int main(int argc, char** argv)
                 delete hist_data;
             }
         }
-        obs_frame->GetYaxis()->SetRangeUser(1E-4, 1E4);
+        obs_frame->GetYaxis()->SetRangeUser(1E-1, 1E4);
+        obs_frame->Print();
+        obs_frame->Print("V");
         obs_frame->Draw();
-        canvas->SaveAs(Form("pdf/pdf_vary_%s.pdf", label_name));
+        TString out_pdf_name(input_name);
+        out_pdf_name.ReplaceAll("root", "pdf");
+        canvas->SaveAs(Form("pdf/%s_%s", label_name, out_pdf_name.Data()));
         out_file->cd();
+
+        // get error band
+        RooCurve* error_band = (RooCurve*) obs_frame->getObject(0);
+        RooCurve* nominal = (RooCurve*) obs_frame->getObject(1);
+        error_band->SetName("error_band");
+        nominal ->SetName("nominal");
+        error_band->Write();
+        nominal->Write();
+        obs_frame->SetName("frame_obs");
         obs_frame->Write();
         delete obs_frame;
     }
