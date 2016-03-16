@@ -196,6 +196,7 @@ int main(int argc, char** argv)
         if (mRes) mRes ->setConstant(0);
     } else {
         // float the masses
+        mu->setConstant(0);
         auto mG = workspace->var("mG");
         auto kappa = workspace->var("GkM");
         auto mX = workspace->var("mX");
@@ -204,7 +205,6 @@ int main(int argc, char** argv)
         if (kappa) kappa->setConstant(0);
         if (mX) mX->setConstant(0);
         if (wX) wX->setConstant(0);
-        
     }
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
@@ -258,7 +258,7 @@ int main(int argc, char** argv)
         pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineWidth(2),
-                RooFit::FillColor(kGreen),
+                RooFit::FillColor(fill_color),
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent),
                 add_arg
                 );
