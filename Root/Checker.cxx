@@ -17,6 +17,10 @@ Checker::Checker(const char* input_name, const char* ws_name,
    cout << "Input: " << input_name << endl;
    ws_ = (RooWorkspace*) input_file_->Get(ws_name);
    mc_ = (RooStats::ModelConfig*) ws_->obj(mc_name);
+   if(mc_) {
+        mc_->GetParametersOfInterest()->Print("v");
+        mc_->GetNuisanceParameters()->Print("v");
+   }
    obs_data_ = (RooDataSet*) ws_->data(data_name);
    asimov_data_ = nullptr;  // create it when needed
    poi_ = (RooRealVar*) ws_->var(mu_name);
@@ -43,6 +47,10 @@ Checker::Checker(const char* input_name, const char* ws_name,
            mH->setVal(455.0);
        }
    }
+   auto mG = ws_->var("mG");
+   if (mG) mG->setConstant(0);
+   auto kappa = ws_->var("GkM");
+   if (kappa) kappa->setConstant(0);
    // fixGammaTerms
    // RooStatsHelper::fixGammaTerms(mc_);
    ws_->saveSnapshot("nominalGlobs", *mc_->GetGlobalObservables());

@@ -32,101 +32,106 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll,
         RooWorkspace* combWS, 
         bool save, const RooArgSet* minosSet)
 {
-  int printLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
-  // RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
+    nll->enableOffsetting(true);
+    int printLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
+    // RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
 
-  if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
+    if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
 
-  int strat = 1;
-  // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
-  RooMinimizer minim(*nll);
-  minim.optimizeConst(1);
-  minim.setStrategy(strat);
-  minim.setPrintLevel(printLevel);
-  // minim.setErrorLevel(1E-3);
-  
-  
-  int status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
-  
-  
-   if (status != 0 && status != 1 && strat < 2)
-   {
-     strat++;
-     cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
-     minim.setStrategy(strat);
-     status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
-   }
-  
-   if (status != 0 && status != 1 && strat < 2)
-   {
-     strat++;
-     cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
-     minim.setStrategy(strat);
-     status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
-   }
-// //switch minuit version and try again
-  if (status != 0 && status != 1)
-  {
-    string minType = ROOT::Math::MinimizerOptions::DefaultMinimizerType();
-    string newMinType;
-    if (minType == "Minuit2") newMinType = "Minuit";
-    else newMinType = "Minuit2";
-  
-    cout << "Switching minuit type from " << minType << " to " << newMinType << endl;
-  
-    ROOT::Math::MinimizerOptions::SetDefaultMinimizer(newMinType.c_str());
-    strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
+    int strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
+    // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
+    RooMinimizer minim(*nll);
+    minim.optimizeConst(2); 
     minim.setStrategy(strat);
+    minim.setPrintLevel(printLevel);
+    minim.setProfile();  // print running time
+    minim.setEps(1);
 
-    status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+    // minim.setErrorLevel(1E-3);
+
+
+    int status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+
 
     if (status != 0 && status != 1 && strat < 2)
     {
-      strat++;
-      cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
-      minim.setStrategy(strat);
-      status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+        strat++;
+        cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
+        minim.setStrategy(strat);
+        status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
     }
 
     if (status != 0 && status != 1 && strat < 2)
     {
-      strat++;
-      cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
-      minim.setStrategy(strat);
-      status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+        strat++;
+        cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
+        minim.setStrategy(strat);
+        status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
     }
+    // //switch minuit version and try again
+    if (status != 0 && status != 1)
+    {
+        string minType = ROOT::Math::MinimizerOptions::DefaultMinimizerType();
+        string newMinType;
+        if (minType == "Minuit2") newMinType = "Minuit";
+        else newMinType = "Minuit2";
 
-    ROOT::Math::MinimizerOptions::SetDefaultMinimizer(minType.c_str());
-  }
-  if (minosSet != NULL) {
-      minim.minos(*minosSet);
-  }
-  if (save && status == 0) return minim.save();
-  else return NULL;
+        cout << "Switching minuit type from " << minType << " to " << newMinType << endl;
+
+        ROOT::Math::MinimizerOptions::SetDefaultMinimizer(newMinType.c_str());
+        strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
+        minim.setStrategy(strat);
+
+        status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+
+        if (status != 0 && status != 1 && strat < 2)
+        {
+            strat++;
+            cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
+            minim.setStrategy(strat);
+            status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+        }
+
+        if (status != 0 && status != 1 && strat < 2)
+        {
+            strat++;
+            cout << "Fit failed with status " << status << ". Retrying with strategy " << strat << endl;
+            minim.setStrategy(strat);
+            status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());
+        }
+
+        ROOT::Math::MinimizerOptions::SetDefaultMinimizer(minType.c_str());
+    }
+    if (minosSet != NULL) {
+        minim.minos(*minosSet);
+    }
+    // minim.minos();
+    if (save && status == 0) return minim.save();
+    else return NULL;
 }
 
 void RooStatsHelper::setVarfixed(RooWorkspace* combined, const char* varName, double value)
 {
-  RooRealVar* _var = (RooRealVar*) combined->var(varName);
-  if (_var) {
-    cout<<varName<<" fixed to " << value<<endl;
-    _var->setVal(value);
-    _var->setConstant(1);
-  } 
-  else {
-    cout << "Error: cannot find " << varName <<endl;
-  }
+    RooRealVar* _var = (RooRealVar*) combined->var(varName);
+    if (_var) {
+        cout<<varName<<" fixed to " << value<<endl;
+        _var->setVal(value);
+        _var->setConstant(1);
+    } 
+    else {
+        cout << "Error: cannot find " << varName <<endl;
+    }
 }
 
 void RooStatsHelper::setVarFree(RooWorkspace* combined, const char* varName)
 {
-  RooRealVar* _var = (RooRealVar*) combined->var(varName);
-  if (_var) {
-    _var->setConstant(kFALSE);
-  }
-  else {
-    cout << "Error: RooStatsHelper cannot find " << varName << endl;
-  }
+    RooRealVar* _var = (RooRealVar*) combined->var(varName);
+    if (_var) {
+        _var->setConstant(kFALSE);
+    }
+    else {
+        cout << "Error: RooStatsHelper cannot find " << varName << endl;
+    }
 }
 
 pair<double,double> RooStatsHelper::getVarVal(const RooWorkspace& combined, const char* varName)

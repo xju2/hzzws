@@ -10,6 +10,7 @@
 #include <RooCategory.h>
 #include <RooStats/ModelConfig.h>
 #include <RooCurve.h>
+#include "RooMinimizer.h"
 
 #include <TFile.h>
 #include <TCanvas.h>
@@ -33,7 +34,7 @@ int main(int argc, char** argv)
     if ((argc > 1 && string(argv[1]) == "help") ||
             argc < 5)
     {
-        cout << argv[0] << " combined.root ws_name mu_name data_name bonly with_data var:value,var:value np1,np2" << endl;
+        cout << argv[0] << " combined.root ws_name mu_name data_name bonly with_data do_visual_error min,max strategy color var:value,var:value np1,np2" << endl;
         return 0;
     }
 
@@ -42,8 +43,10 @@ int main(int argc, char** argv)
     string muName(argv[3]);
     string dataName(argv[4]);
     string mcName = "ModelConfig";
-    bool is_bonly = false;
+
     int opt_id = 5;
+
+    bool is_bonly = false;
     if (argc > opt_id) {
         is_bonly = (bool) atoi(argv[opt_id]);
     }
@@ -55,6 +58,39 @@ int main(int argc, char** argv)
     }
     opt_id ++;
 
+    bool do_visual_error = true;
+    if (argc > opt_id) {
+        do_visual_error = (bool) atoi(argv[opt_id]);
+    }
+    opt_id ++;
+
+    double max_obs = 2000, min_obs = 200;
+    if (argc > opt_id) {
+        string options(argv[opt_id]);
+        vector<string> tokens;
+        Helper::tokenizeString(options, ',', tokens);
+        if (tokens.size() < 2) {
+            cout << "option: " << options << " invalid"<<endl;
+            cout << "provide two numbers, e.g. 110,140" << endl;
+            exit(1);
+        }
+        min_obs = (double) atof(tokens.at(0).c_str());
+        max_obs = (double) atof(tokens.at(1).c_str());
+    }
+    opt_id ++;
+
+    int strategy = 1;
+    if (argc > opt_id) {
+        strategy = atoi(argv[opt_id]);
+    }
+    opt_id ++;
+    
+    int fill_color = kGreen; // (416)
+    if (argc > opt_id){
+        fill_color = atoi(argv[opt_id]);
+    }
+    opt_id ++;
+    
     map<string, double> fix_var_map;
     if (argc > opt_id)
     {
@@ -109,7 +145,6 @@ int main(int argc, char** argv)
         log_err("data(%s) does not exist", dataName.c_str());
         exit(2);
     }
-    double max_obs = 2000, min_obs = 200;
     int nbins = (int) (max_obs-min_obs)/20;
     if(!obs || !mu) {
         file_in->Close();
@@ -117,9 +152,9 @@ int main(int argc, char** argv)
     } else {
         mu->Print();
         obs->Print();
-        obs->setRange(min_obs, max_obs);
+        // obs->setRange(min_obs, max_obs);
         /*need to pre-define binning!*/
-        obs->setBins(nbins);
+        // obs->setBins(nbins);
     }
 
     /* fix parameters given in option*/
@@ -143,23 +178,53 @@ int main(int argc, char** argv)
     cout<<" dataName: " << dataName << endl;
     cout<<" bonly: " << is_bonly << endl;
     cout<<" withData: " << with_data << endl;
+    cout<<" Visual Error: " << do_visual_error << endl;
     cout<<" NP size: " << np_names.size() << endl;
+    cout<<" Range of obs: [" << min_obs << "-" << max_obs << "] " << endl;
+    cout<<" strategy: " << strategy << endl;
 
-    workspace->loadSnapshot("ucmles_0");
-    RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat");
-    RooStatsHelper::fixTermsWithPattern(mc, "ATLAS_");
 
     /* unconditional fit*/
     if(is_bonly) {
         mu->setVal(0);
         mu->setConstant();
+        RooStatsHelper::fixTermsWithPattern(mc, "ATLAS_");
+        // but free the following two, to include sprious signal uncertainties
+        auto hgg_bias = workspace->var("ATLAS_Hgg_BIAS");
+        auto mRes = workspace->var("ATLAS_mRes");
+        if(hgg_bias) hgg_bias->setConstant(0);
+        if (mRes) mRes ->setConstant(0);
+    } else {
+        // float the masses
+        auto mG = workspace->var("mG");
+        auto kappa = workspace->var("GkM");
+        auto mX = workspace->var("mX");
+        auto wX = workspace->var("wX");
+        if (mG) mG->setConstant(0);
+        if (kappa) kappa->setConstant(0);
+        if (mX) mX->setConstant(0);
+        if (wX) wX->setConstant(0);
+        
     }
+
+    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
+    ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
+    ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
+    // print out the message
+    mc->GetParametersOfInterest()->Print("v");
+    mc->GetNuisanceParameters()->Print("v");
+
 
     auto* nll = RooStatsHelper::createNLL(data, mc);
     RooFitResult* fit_results = RooStatsHelper::minimize(nll, workspace, true);
     if (!fit_results) {
         log_err("no fit results");
     }
+    if (!do_visual_error) {
+        delete fit_results;
+        fit_results = NULL;
+    }
+    // fit_results = NULL;
     auto* canvas = new TCanvas("c1", "c1", 600, 600);
     gStyle->SetMarkerSize(0.5);
     canvas->SetLogy();
@@ -171,18 +236,19 @@ int main(int argc, char** argv)
     if(data) {
         data_lists = data->split(category, true);
     }
-    
+    obs->setRange(min_obs, max_obs);
+    obs->setBins(nbins);
     auto* out_file = TFile::Open("out_hist.root", "recreate");
     while( (obj= (RooCatType*)cat_iter()) )
     {
         const char* label_name = obj->GetName();
         RooAbsPdf* pdf = simPdf->getPdf(label_name);
-        // pdf->Print();
-        auto* obs_frame = obs->frame();
+        pdf->Print();
+        auto* obs_frame = obs->frame(RooFit::Binning(nbins));
         obs_frame->SetMarkerSize(0.015);
         int color = 4;
         /* background only plot */
-        mu->setVal(0.0);
+        // mu->setVal(0.0);
         double bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
         auto* hist_bkg = (TH1F*) pdf->createHistogram(Form("hist_bkg_%s", label_name), *obs, RooFit::Binning(nbins));
         hist_bkg->Scale(bkg_evts/hist_bkg->Integral());
@@ -202,9 +268,17 @@ int main(int argc, char** argv)
                 RooFit::LineWidth(1),
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
                 );
+        auto bkg_only_pdf = (RooAbsPdf*) workspace->obj("pdf_background_inclusive_13TeV");
+        bkg_only_pdf->plotOn(obs_frame, 
+                RooFit::LineStyle(1),
+                RooFit::LineColor(1),
+                RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
+                );
         /* signal + background plot */
         TH1F* hist_sb = NULL;
-        if(!is_bonly){
+        // if(!is_bonly)
+        if(false)
+        {
             mu->setVal(22.09);
             double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
             cout << "[INFO] S+B: " << splusb_evts << endl;
@@ -281,7 +355,7 @@ int main(int argc, char** argv)
         }
         obs_frame->GetYaxis()->SetRangeUser(1E-1, 1E4);
         obs_frame->Print();
-        obs_frame->Print("V");
+        obs_frame->Print("v");
         obs_frame->Draw();
         TString out_pdf_name(input_name);
         out_pdf_name.ReplaceAll("root", "pdf");
@@ -291,10 +365,14 @@ int main(int argc, char** argv)
         // get error band
         RooCurve* error_band = (RooCurve*) obs_frame->getObject(0);
         RooCurve* nominal = (RooCurve*) obs_frame->getObject(1);
+        RooCurve* bkg_only = (RooCurve*) obs_frame->getObject(2);
         error_band->SetName("error_band");
         nominal ->SetName("nominal");
+        bkg_only ->SetName("bkg_only");
         error_band->Write();
         nominal->Write();
+        bkg_only->Write();
+
         obs_frame->SetName("frame_obs");
         obs_frame->Write();
         delete obs_frame;
