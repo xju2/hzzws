@@ -32,12 +32,12 @@ using namespace std;
 int main(int argc, char** argv)
 {
     if ((argc > 1 && string(argv[1]) == "help") ||
-            argc < 5)
+            argc < 2)
     {
         cout << argv[0] << " combined.root ws_name mu_name data_name bonly with_data do_visual_error min,max strategy color var:value,var:value np1,np2" << endl;
+        cout << argv[0] << " configuration" << endl;
         return 0;
     }
-
     string input_name(argv[1]);
     string wsName(argv[2]);
     string muName(argv[3]);
@@ -91,23 +91,10 @@ int main(int argc, char** argv)
     }
     opt_id ++;
     
-    map<string, double> fix_var_map;
+    string fix_variables = "";
     if (argc > opt_id)
     {
-        string options(argv[opt_id]);
-        cout << options << endl;
-        vector<string> tokens;
-        Helper::tokenizeString(options, ',', tokens);
-        for(auto iter = tokens.begin(); iter != tokens.end(); iter++){
-            string token(*iter);
-            cout << token << endl;
-            size_t delim_pos = token.find(':');
-            if(delim_pos != string::npos){
-                string var_name = token.substr(0, delim_pos);
-                double var_val = atof( token.substr(delim_pos+1, token.size()).c_str());
-                fix_var_map[var_name] = var_val;
-            }
-        }
+        fix_variables = argv[opt_id];
     }
     opt_id ++;
 
@@ -158,19 +145,8 @@ int main(int argc, char** argv)
     }
 
     /* fix parameters given in option*/
-    if (fix_var_map.size() > 0) {
-        for (auto it = fix_var_map.begin(); it != fix_var_map.end(); it++){
-            string var_name (it->first);
-            auto* par = (RooRealVar*) workspace->var(var_name.c_str());
-            if(!par) {
-                log_warn("%s does not exist!", var_name.c_str());
-            } else {
-                log_info("%s fixed to %.2f", var_name.c_str(), it->second);
-                par->setVal(it->second);
-                par->setConstant();
-            }
-        }
-    }
+    RooStatsHelper::fixVariables(workspace, fix_variables);
+
     // summary of options
     cout<<" Input: " << input_name << endl;
     cout<<" wsName: " << wsName << endl;
@@ -182,6 +158,7 @@ int main(int argc, char** argv)
     cout<<" NP size: " << np_names.size() << endl;
     cout<<" Range of obs: [" << min_obs << "-" << max_obs << "] " << endl;
     cout<<" strategy: " << strategy << endl;
+    cout<<" Fix variables: " << fix_variables << endl;
 
 
     /* unconditional fit*/
@@ -216,13 +193,9 @@ int main(int argc, char** argv)
 
 
     auto* nll = RooStatsHelper::createNLL(data, mc);
-    RooFitResult* fit_results = RooStatsHelper::minimize(nll, workspace, true);
-    if (!fit_results) {
-        log_err("no fit results");
-    }
-    if (!do_visual_error) {
-        delete fit_results;
-        fit_results = NULL;
+    RooFitResult* fit_results = NULL;
+    if (do_visual_error) {
+        fit_results = RooStatsHelper::minimize(nll, workspace, true);
     }
     // fit_results = NULL;
     auto* canvas = new TCanvas("c1", "c1", 600, 600);

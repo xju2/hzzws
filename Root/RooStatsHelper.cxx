@@ -181,18 +181,17 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
         log_err("%s does not exist", mu->GetName());
         return -9999;
     }
-    if(string(muName).compare("mu_BSM") == 0){
-        combined->var("mu")->setConstant(false);
-    }
-    ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 
     if(!isRatioLogLikelihood){
         mu ->setConstant(0);
+        mu->Print();
         cout<<"Fitting with "<<mu->GetName()<<" free"<<endl;
     }else{
         mu ->setVal(1);
         mu ->setConstant(1);
+        cout<<"Fitting with "<<mu->GetName()<<"=1"<<endl;
     }
+
     combined ->loadSnapshot("nominalGlobs");
     combined ->loadSnapshot("nominalNuis");
     PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
@@ -814,4 +813,31 @@ bool RooStatsHelper::fixTermsWithPattern(RooStats::ModelConfig* mc, const char* 
         }
     }
     return true;
+}
+
+void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options) 
+{
+    // options can be like: "mG:750,GkM:0.02"
+    if (!workspace || options == "") return;
+    vector<string> tokens;
+    Helper::tokenizeString(options, ',', tokens);
+    if (tokens.size() < 1) return ;
+
+    for(auto iter = tokens.begin(); iter != tokens.end(); iter++)
+    {
+        string token(*iter);
+        size_t delim_pos = token.find(':');
+        if(delim_pos != string::npos){
+            string var_name = token.substr(0, delim_pos);
+            double var_val = atof( token.substr(delim_pos+1, token.size()).c_str());
+            auto par = (RooRealVar*) workspace->var(var_name.c_str());
+            if(!par) {
+                log_warn("%s does not exist", var_name.c_str());
+            } else {
+                log_info("%s fixed to %.2f", var_name.c_str(), var_val);
+                par->setVal(var_val);
+                par->setConstant();
+            }
+        }
+    }
 }

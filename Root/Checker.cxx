@@ -27,35 +27,14 @@ Checker::Checker(const char* input_name, const char* ws_name,
    if(poi_){
        poi_->Print();
    }
-   auto* mu = (RooRealVar*) ws_->var("mu_BSM");
-   if(mu){
-       mu->Print();
-   }
-   auto* mu_h = (RooRealVar*) ws_->var("mu");
-   if(mu_h){
-       mu_h->setRange(0, 20);
-       // mu_h->setRange(-20, 20);
-   }
-   auto* m4l = (RooRealVar*) ws_->var("m4l");
-   auto* mH = (RooRealVar*) ws_->var("mH");
-   if(mH){
-       if(m4l->getMax() < 150) {
-           mH->setRange(110., 140.); 
-           mH->setVal(125.09);
-       } else {
-           mH->setRange(200, 1000.); 
-           mH->setVal(455.0);
-       }
-   }
    auto mG = ws_->var("mG");
    if (mG) mG->setConstant(0);
    auto kappa = ws_->var("GkM");
    if (kappa) kappa->setConstant(0);
    // fixGammaTerms
-   // RooStatsHelper::fixGammaTerms(mc_);
+   RooStatsHelper::fixTermsWithPattern(mc_, "gamma_stat");
    ws_->saveSnapshot("nominalGlobs", *mc_->GetGlobalObservables());
    ws_->saveSnapshot("nominalNuis", *mc_->GetNuisanceParameters());
-
 }
 
 Checker::~Checker()

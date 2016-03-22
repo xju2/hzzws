@@ -55,6 +55,7 @@ int main(int argc, char** argv)
             mcName.c_str(), dataName.c_str(), muName.c_str());
     stats_helper->CheckNuisPdfConstraint();
     // double exp_pvalue = stats_helper->getExpectedPvalue();
+    ROOT::Math::MinimizerOptions::SetDefaultStrategy(0);
     double obs_pvalue = stats_helper->getObservedPvalue();
     // cout << "expected p0: " << exp_pvalue << endl;
     cout << "obs p0: " << obs_pvalue << endl;

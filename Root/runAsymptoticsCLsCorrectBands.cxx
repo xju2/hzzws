@@ -171,16 +171,13 @@ void runAsymptoticsCLs(const char* infile,
 		       const char* conditionalSnapshot,
 		       const char* nominalSnapshot,
 		       string folder,
-		       double mass,
-		       double CL, const char* muName, int fixother)
+		       double CL, const char* muName, const string& fix_var)
 {
-  stringstream smass;
-  smass << mass;
 
   conditionalSnapshot = ""; // warningless compile
   nominalSnapshot = "";     // warningless compile
 
-  runAsymptoticsCLs(infile, workspaceName, modelConfigName, dataName, asimovDataName, folder, mass, CL, muName, fixother);
+  runAsymptoticsCLs(infile, workspaceName, modelConfigName, dataName, asimovDataName, folder, CL, muName, fix_var);
 }
 
 
@@ -191,8 +188,7 @@ void runAsymptoticsCLs(const char* infile,
 		       const char* dataName,
 		       const char* asimovDataName,
 		       string folder,
-		       double mass,
-		       double CL, const char* muName, int fixother)
+		       double CL, const char* muName, const string& fix_var)
 {
   TStopwatch timer;
   timer.Start();
@@ -218,18 +214,14 @@ void runAsymptoticsCLs(const char* infile,
     cout << "ERROR::ModelConfig: " << modelConfigName << " doesn't exist!" << endl;
     return;
   }
+  RooStatsHelper::fixVariables(w, fix_var);
   //firstPOI = (RooRealVar*)mc->GetParametersOfInterest()->first();
-  auto mu_SM = w->var("mu");
-  if(mu_SM){
-      mu_SM->setRange(0, 40);
-      mu_SM->setConstant((bool) fixother);
-  }
 
   firstPOI = (RooRealVar*) w->var(muName); 
   if(!firstPOI || firstPOI==NULL){
       cout<< muName<<" does not exist"<<endl;
   }
-  firstPOI ->setRange(-10,10);
+  firstPOI ->setRange(-10,100);
 
   data = (RooDataSet*)w->data(dataName);
   if (!data)
@@ -238,11 +230,6 @@ void runAsymptoticsCLs(const char* infile,
       return;
   }
 
-  RooRealVar* mhiggs = (RooRealVar*) w->var("mH");
-  if (mhiggs){
-      mhiggs ->setVal(mass);
-      mhiggs ->setConstant(1);
-  }
 
   //RooAbsPdf* pdf = mc->GetPdf();
   obs_nll = createNLL(data);//(RooNLLVar*)pdf->createNLL(*data);
@@ -395,7 +382,7 @@ void runAsymptoticsCLs(const char* infile,
   cout << "Median:   " << med_limit << endl;
   cout << "Observed: " << obs_limit << endl;
   cout << endl;
-  cout <<"Limit: " << mass<< " "
+  cout <<"Limit: " << fix_var << " "
       << mu_up_n2 <<" "
       << mu_up_n1 <<" "
       << med_limit<<" "

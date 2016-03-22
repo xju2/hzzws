@@ -3,10 +3,12 @@
 
 #include "RooNLLVar.h"
 #include "RooAbsReal.h"
+#include <string>
 
 using namespace std;
 using namespace RooFit;
 using namespace RooStats;
+
 
 namespace Limit{
 //main
@@ -16,8 +18,7 @@ void runAsymptoticsCLs(const char* infile,
 		       const char* dataName,
 		       const char* asimovDataName,
 		       string folder,
-		       double mass,
-		       double CL, const char* muName = "mu", int fixother = 0);
+		       double CL, const char* muName = "mu", const string& fixother = " ");
 
  //for backwards compatibility
 void runAsymptoticsCLs(const char* infile,
@@ -28,8 +29,7 @@ void runAsymptoticsCLs(const char* infile,
 		       const char* conditionalSnapshot = "conditionalGlobs_0",
 		       const char* nominalSnapshot = "nominalGlobs",
 		       string folder = "test",
-		       double mass = 130,
-		       double CL = 0.95, const char* muName = "mu", int fixother = 0);
+		       double CL = 0.95, const char* muName = "mu", const string& fixother =" ");
 
 double getLimit(RooNLLVar* nll, double initial_guess = 0);
 double getSigma(RooNLLVar* nll, double mu, double muhat, double& qmu);

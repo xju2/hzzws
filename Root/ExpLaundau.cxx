@@ -125,6 +125,8 @@ RooAbsPdf* ExpLaundau::getPDF()
     string output_name = Form("%s_generic", base_name_.Data());
     auto* pdf_cat = new RooGenericPdf(output_name.c_str(),
             "pdf", formula.c_str(), *arg_list);
+    pdf_cat->Print();
+    pdf_cat->Print("v");
     workspace->import(*pdf_cat);
     
     delete arg_list; 
