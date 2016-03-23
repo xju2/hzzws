@@ -52,10 +52,13 @@ int main(int argc, char** argv)
     // delete stats_helper;
 
     Limit::runAsymptoticsCLs(
-            input_name.c_str(), wsName.c_str(), mcName.c_str(),
-            dataName.c_str(), "asimovData_0", 
-            "conditionalGlobs_0", "nominalGlobs", 
-            "test", 0.95, muName.c_str(), fix_variables 
+            input_name.c_str(), 
+            wsName.c_str(), 
+            mcName.c_str(),
+            dataName.c_str(), 
+            "asimovData_0", 
+            "test", 0.95, 
+            muName.c_str(), fix_variables 
             );
     return 0;
 }

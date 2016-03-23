@@ -835,6 +835,8 @@ void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options
                 log_warn("%s does not exist", var_name.c_str());
             } else {
                 log_info("%s fixed to %.2f", var_name.c_str(), var_val);
+                double low_val = var_val*0.8, hi_val = var_val*1.2;
+                par->setRange(low_val, hi_val);
                 par->setVal(var_val);
                 par->setConstant();
             }

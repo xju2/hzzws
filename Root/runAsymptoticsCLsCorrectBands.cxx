@@ -230,6 +230,8 @@ void runAsymptoticsCLs(const char* infile,
       return;
   }
 
+  // RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat" ) ;
+  mc->GetParametersOfInterest()->Print("v");
 
   //RooAbsPdf* pdf = mc->GetPdf();
   obs_nll = createNLL(data);//(RooNLLVar*)pdf->createNLL(*data);
