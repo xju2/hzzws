@@ -150,18 +150,18 @@ def make_limit_graph(file1, kappa, w_xs = 1.0):
     
     return (gr_obs, gr_exp, gr_1sig, gr_2sig)
 
-def plot_limit(kappa, with_data = False):
+def plot_limit(kappa, with_data = False, split = False):
     low_y = 0.3
     hi_y = 100
-    unit = "95% CL limit on #sigma [pb]"
-    dummy=ROOT.TH2F("dummy",";m_{G} [GeV];"+unit,
+    unit = "95% CL limit on #sigma #times BR(G*#rightarrow#gamma#gamma) [fb]"
+    dummy=ROOT.TH2F("dummy",";m_{G*} [GeV];"+unit,
                     151, 495.,3515,3000,low_y,hi_y);
     dummy.GetXaxis().SetNdivisions(509);
 
     hist_obs,hist_exp,hist_1s,hist_2s = make_limit_graph("limit_histfactory.txt",
-                                                      kappa, )
-    func_obs,func_exp,func_1s,func_2s = make_limit_graph("limit_func.txt",
-                                                      kappa, 1/3.2)
+                                                      kappa)
+    func_obs,func_exp,func_1s,func_2s = make_limit_graph("limit_func_Mar23.txt",
+                                                      kappa)
 
     hist_obs.SetLineColor(4)
     hist_exp.SetLineColor(4)
@@ -198,8 +198,8 @@ def plot_limit(kappa, with_data = False):
     dummy.Draw("AXIS SAME")
 
     legend = ROOT.myLegend(0.62, 0.60, 0.83, 0.90)
-    legend.AddEntry(hist_obs, "Template", "l")
-    legend.AddEntry(func_obs, "Function", "l")
+    legend.AddEntry(hist_exp, "Template", "l")
+    legend.AddEntry(func_exp, "Function", "l")
     legend.AddEntry(hist_1s, "Template #pm 1 #sigma", "f")
     legend.AddEntry(hist_2s, "Template #pm 2 #sigma", "f")
     legend.AddEntry(func_1s, "Function #pm 1 #sigma", "f")
@@ -217,12 +217,51 @@ def plot_limit(kappa, with_data = False):
         out_name +="_data"
     canvas.SaveAs(out_name+".pdf")
 
+    if split:
+        can_hist = ROOT.TCanvas("can_hist", " ", 600, 600)
+        can_hist.SetLogy()
+        dummy.Draw()
+        hist_2s.Draw("3")
+        hist_1s.Draw("3")
+        hist_exp.Draw("L")
+        if with_data: hist_obs.Draw("L*")
+        dummy.Draw("AXIS SAME")
+        leg_hist = ROOT.myLegend(0.62, 0.70, 0.83, 0.90)
+        leg_hist.AddEntry(hist_exp, "Template", "l")
+        leg_hist.AddEntry(hist_1s, "Template #pm 1 #sigma", "f")
+        leg_hist.AddEntry(hist_2s, "Template #pm 2 #sigma", "f")
+        leg_hist.Draw()
+        ROOT.myText(x_off_title, 0.85, 1, "#bf{#it{ATLAS}} Preliminary")
+        ROOT.myText(x_off_title, 0.80, 1, "13 TeV, {:.2f} fb^{{-1}}".format(lumi))
+        ROOT.myText(x_off_title, 0.75, 1, "k/#bar{M_{pl}} = "+kappa)
+        can_hist.SaveAs(out_name+"_hist.pdf")
+
+        #### functional
+        can_func = ROOT.TCanvas("can_func", " ", 600, 600)
+        can_func.SetLogy()
+        dummy.Draw()
+        func_2s.Draw("3")
+        func_1s.Draw("3")
+        func_exp.Draw("L")
+        if with_data: func_obs.Draw("L*")
+        dummy.Draw("AXIS SAME")
+        leg_func = ROOT.myLegend(0.62, 0.70, 0.83, 0.90)
+        leg_func.AddEntry(func_exp, "Function", "l")
+        leg_func.AddEntry(func_1s, "Function #pm 1 #sigma", "f")
+        leg_func.AddEntry(func_2s, "Function #pm 2 #sigma", "f")
+        leg_func.Draw()
+        ROOT.myText(x_off_title, 0.85, 1, "#bf{#it{ATLAS}} Preliminary")
+        ROOT.myText(x_off_title, 0.80, 1, "13 TeV, {:.2f} fb^{{-1}}".format(lumi))
+        ROOT.myText(x_off_title, 0.75, 1, "k/#bar{M_{pl}} = "+kappa)
+        can_func.SaveAs(out_name+"_func.pdf")
+
 if __name__ == "__main__":
     is_inclusive = False 
     #get_limit_graph("limit_shxx.txt", "Scalar", is_inclusive)
     #get_limit_graph("limit_zphxx.txt", "Vector", is_inclusive)
     #make_limit_graph("limit_histfactory.txt")
-    kappa_list = ["0.01", "0.1", "0.2"]
+    kappa_list = ["0.01", "0.1", "0.2", "0.3"]
     with_data = False
+    split = True
     for kappa in kappa_list:
-        plot_limit(kappa, with_data)
+        plot_limit(kappa, with_data, split)

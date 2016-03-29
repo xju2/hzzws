@@ -190,45 +190,58 @@ void runAsymptoticsCLs(const char* infile,
 		       string folder,
 		       double CL, const char* muName, const string& fix_var)
 {
+
+
+//check inputs
+  TFile f(infile);
+  auto w_ = (RooWorkspace*)f.Get(workspaceName);
+  if (!w_)
+  {
+    cout << "ERROR::Workspace: " << workspaceName << " doesn't exist!" << endl;
+    return;
+  }
+
+  auto mc_ = (ModelConfig*)w->obj(modelConfigName);
+  if (!mc_)
+  {
+    cout << "ERROR::ModelConfig: " << modelConfigName << " doesn't exist!" << endl;
+    return;
+  }
+
+  auto firstPOI_ = (RooRealVar*) w->var(muName); 
+  if(!firstPOI_ || firstPOI_ ==NULL){
+      cout<< muName <<" does not exist"<<endl;
+  }
+  firstPOI_ ->setRange(-10,100);
+
+  RooDataSet* data_ = (RooDataSet*)w->data(dataName);
+  if (!data_)
+  {
+      cout << "ERROR::Dataset: " << dataName << " doesn't exist!" << endl;
+      return;
+  }
+  run_limit(w_, mc_, data_, firstPOI_, asimovDataName);
+}
+
+void run_limit(RooWorkspace* ws_, ModelConfig* mc_, 
+        RooDataSet* data_, RooRealVar* firstPOI_, 
+        const char* asimovDataName) 
+{
   TStopwatch timer;
   timer.Start();
+  if (!ws_ || !mc_ || !data_ || !firstPOI_) return;
+  w = ws_;
+  mc = mc_;
+  data = data_;
+  firstPOI = firstPOI_;
+
+  double CL = 0.95;
 
   if (killBelowFatal) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer(defaultMinimizer.c_str());
   ROOT::Math::MinimizerOptions::SetDefaultStrategy(defaultStrategy);
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(defaultPrintLevel);
   //RooNLLVar::SetIgnoreZeroEntries(1);
-
-//check inputs
-  TFile f(infile);
-  w = (RooWorkspace*)f.Get(workspaceName);
-  if (!w)
-  {
-    cout << "ERROR::Workspace: " << workspaceName << " doesn't exist!" << endl;
-    return;
-  }
-
-  mc = (ModelConfig*)w->obj(modelConfigName);
-  if (!mc)
-  {
-    cout << "ERROR::ModelConfig: " << modelConfigName << " doesn't exist!" << endl;
-    return;
-  }
-  RooStatsHelper::fixVariables(w, fix_var);
-  //firstPOI = (RooRealVar*)mc->GetParametersOfInterest()->first();
-
-  firstPOI = (RooRealVar*) w->var(muName); 
-  if(!firstPOI || firstPOI==NULL){
-      cout<< muName<<" does not exist"<<endl;
-  }
-  firstPOI ->setRange(-10,100);
-
-  data = (RooDataSet*)w->data(dataName);
-  if (!data)
-  {
-      cout << "ERROR::Dataset: " << dataName << " doesn't exist!" << endl;
-      return;
-  }
 
   // RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat" ) ;
   mc->GetParametersOfInterest()->Print("v");
@@ -244,7 +257,7 @@ void runAsymptoticsCLs(const char* infile,
   RooDataSet* asimovData_0 = (RooDataSet*)w->data(asimovDataName);
   if (!asimovData_0)
   {
-      asimovData_0 = makeAsimovData(conditionalExpected, obs_nll, 0, muName);
+      asimovData_0 = makeAsimovData(conditionalExpected, obs_nll, 0, firstPOI_->GetName());
   }
   int asimov0_status=global_status;
 
@@ -303,7 +316,7 @@ void runAsymptoticsCLs(const char* infile,
           w->loadSnapshot("conditionalGlobs_0");
           double pr_val = NtimesSigma;
           if (N < 0 && profileNegativeAtZero) pr_val = 0;
-          RooDataSet* asimovData_N = makeAsimovData(1, asimov_0_nll, NtimesSigma, muName, &muStr, &muStrPr, pr_val, 0);
+          RooDataSet* asimovData_N = makeAsimovData(1, asimov_0_nll, NtimesSigma, firstPOI_->GetName(), &muStr, &muStrPr, pr_val, 0);
 
 
           RooNLLVar* asimov_N_nll = createNLL(asimovData_N);//(RooNLLVar*)pdf->createNLL(*asimovData_N);
@@ -384,7 +397,7 @@ void runAsymptoticsCLs(const char* infile,
   cout << "Median:   " << med_limit << endl;
   cout << "Observed: " << obs_limit << endl;
   cout << endl;
-  cout <<"Limit: " << fix_var << " "
+  cout <<"Limit: " 
       << mu_up_n2 <<" "
       << mu_up_n1 <<" "
       << med_limit<<" "

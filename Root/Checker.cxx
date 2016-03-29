@@ -32,9 +32,9 @@ Checker::Checker(const char* input_name, const char* ws_name,
    auto kappa = ws_->var("GkM");
    if (kappa) kappa->setConstant(0);
    // fixGammaTerms
-   RooStatsHelper::fixTermsWithPattern(mc_, "gamma_stat");
-   ws_->saveSnapshot("nominalGlobs", *mc_->GetGlobalObservables());
-   ws_->saveSnapshot("nominalNuis", *mc_->GetNuisanceParameters());
+   // RooStatsHelper::fixTermsWithPattern(mc_, "gamma_stat");
+   // ws_->saveSnapshot("nominalGlobs", *mc_->GetGlobalObservables());
+   // ws_->saveSnapshot("nominalNuis", *mc_->GetNuisanceParameters());
 }
 
 Checker::~Checker()
@@ -57,7 +57,7 @@ double Checker::getExpectedPvalue()
     ***/
         asimov_data_ = dynamic_cast<RooDataSet*>(RooStats::AsymptoticCalculator::GenerateAsimovData(*mc_->GetPdf(), *mc_->GetObservables()));
     }
-    return RooStatsHelper::getPvalue(ws_, mc_->GetPdf(), mc_, asimov_data_, "nominalGlobs", poi_->GetName());
+    return RooStatsHelper::getPvalue(ws_, mc_, asimov_data_, poi_->GetName());
 }
 
 double Checker::getObservedPvalue()
@@ -70,7 +70,7 @@ double Checker::getObservedPvalue()
    if(mH){
         mH->setConstant(false);
    }
-    return RooStatsHelper::getPvalue(ws_, mc_->GetPdf(), mc_, obs_data_, "", poi_->GetName());
+    return RooStatsHelper::getPvalue(ws_, mc_, obs_data_, poi_->GetName());
 }
 
 double Checker::getExpectedLimit()

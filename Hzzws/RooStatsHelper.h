@@ -38,10 +38,8 @@ namespace RooStatsHelper{
             );
     // get p0-value
     double getPvalue(RooWorkspace* combined, 
-            RooAbsPdf* combPdf, 
             RooStats::ModelConfig* mc, 
             RooAbsData* data, 
-            const char* condName,
             const char* muName,
             bool isRatioLogLikelihood = false);
     // sqrt(2* ((s+b)ln(1+s/b) - b ))
@@ -70,5 +68,7 @@ namespace RooStatsHelper{
             RooRealVar* mu, const RooArgSet* observables, bool subrange);
     bool fixTermsWithPattern(RooStats::ModelConfig* mc, const char* pat ) ;
     void fixVariables(RooWorkspace* ws, const string& inputs);
+
+    bool CheckNuisPdfConstraint(const RooArgSet* nuis, const RooArgSet* pdfConstraint);
 }
 #endif

@@ -159,10 +159,10 @@ RooNLLVar* RooStatsHelper::createNLL(RooAbsData* _data, RooStats::ModelConfig* _
 }
 
 double RooStatsHelper::getPvalue(RooWorkspace* combined, 
-        RooAbsPdf* combPdf, RooStats::ModelConfig* mc, 
+        RooStats::ModelConfig* mc, 
         RooAbsData* data, 
-        const char* conditionalName, 
-        const char* muName, bool isRatioLogLikelihood)
+        const char* muName, 
+        bool isRatioLogLikelihood)
 {
     TString dataname(data->GetName());
 
@@ -192,11 +192,11 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
         cout<<"Fitting with "<<mu->GetName()<<"=1"<<endl;
     }
 
-    combined ->loadSnapshot("nominalGlobs");
-    combined ->loadSnapshot("nominalNuis");
+    auto combPdf = mc->GetPdf();
+
     PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
     RooNLLVar* nll = createNLL(data, mc);
-    // look at the global observables
+    
     minimize(nll, combined);
     double obs_nll_min = nll ->getVal();
     cout << "mu_hat for " << data->GetName() << " " << mu->getVal() << 
@@ -206,7 +206,7 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
     bool reverse = (mu ->getVal() < 0);
 
     cout<<"Fitting background only hypothesis "<< mu->GetName()<<endl;
-    combined ->loadSnapshot("nominalGlobs");
+    
     mu ->setVal(1.0e-200);
     mu ->setConstant(1);
     RooNLLVar* nllCond = createNLL(data, mc);
@@ -221,7 +221,6 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
     double obs_sig = sign*sqrt(fabs(obs_q0));  
     cout<<"NLL min: "<< obs_nll_min <<" "<< obs_nll_min_bkg <<" "<< obs_sig<<endl;
 
-    //return 0.5*(1 - TMath::Erf(obs_sig/sqrt(2.0))); 
     return RooStats::SignificanceToPValue(obs_sig);
 }
 
@@ -842,4 +841,38 @@ void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options
             }
         }
     }
+}
+
+bool RooStatsHelper::CheckNuisPdfConstraint(const RooArgSet* nuis, const RooArgSet* pdfConstraint)
+{
+    if(!nuis || nuis->getSize() < 1) {
+        cout << "no nusiance parameter is found" << endl;
+        return true;
+    }
+    if(nuis->getSize() != pdfConstraint->getSize())
+    {
+        log_err("number of nuisance %d; pdfConstraint size: %d", nuis->getSize(), pdfConstraint->getSize());
+
+        TIterator* iterNuis = nuis->createIterator();
+        TIterator* iterPdfCons = pdfConstraint->createIterator();
+        RooRealVar* nuisVal;
+        RooAbsPdf* pdfCon;
+        while((nuisVal = (RooRealVar*)iterNuis->Next())){
+            TString constrainName(Form("%sConstraint",nuisVal->GetName())); 
+            if(pdfConstraint->find(constrainName.Data()) == NULL){
+                cout <<nuisVal->GetName()<<" not Constraint"<<endl;
+            }
+        }
+        while((pdfCon = (RooAbsPdf*)iterPdfCons->Next())){
+            TString nuisName(pdfCon ->GetName());
+            nuisName.ReplaceAll("Constraint","");
+            if(nuis->find(nuisName.Data()) == NULL){
+                cout <<nuisName<<" is omitted"<<endl;
+            }
+        }
+        return false;
+    } else {
+        cout <<"total number of nuisance parameters: "<<nuis->getSize()<<endl;
+    }
+    return true;
 }

@@ -19,7 +19,10 @@ void runAsymptoticsCLs(const char* infile,
 		       const char* asimovDataName,
 		       string folder,
 		       double CL, const char* muName = "mu", const string& fixother = " ");
-
+void run_limit(RooWorkspace* ws, ModelConfig* mc, 
+        RooDataSet* data, RooRealVar* firstPOI, 
+        const char* asimovDataName = "asimovData_0"); 
+        
  //for backwards compatibility
 void runAsymptoticsCLs(const char* infile,
 		       const char* workspaceName = "combWS",
