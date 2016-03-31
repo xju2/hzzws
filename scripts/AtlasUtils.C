@@ -393,10 +393,10 @@ void SetXTitle(TH1* h1, const char* title)
     h1->GetXaxis()->SetTitleSize(0.05);
 }
 
-void AddLine(TH1* h1, double y_value)
+void AddLine(TAxis* h1, double y_value)
 {
     double x_low = h1->GetBinLowEdge(1);
-    double x_hi = h1->GetBinLowEdge(h1->GetNbinsX()+1);
+    double x_hi = h1->GetBinLowEdge(h1->GetNbins()+1);
     TLine equal_line;
     equal_line.SetLineColor(11);
     equal_line.SetLineStyle(2);

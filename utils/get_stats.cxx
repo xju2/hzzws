@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>
+#include <sstream>
+#include <fstream>
 
 #include <TFile.h>
 #include <TSystem.h>
@@ -13,7 +15,6 @@
 #include "RooStats/AsymptoticCalculator.h"
 
 #include "Hzzws/RooStatsHelper.h"
-#include "Hzzws/Checker.h"
 #include "Hzzws/Helper.h"
 #include "Hzzws/runAsymptoticsCLsCorrectBands.h"
 
@@ -63,6 +64,8 @@ int main(int argc, char** argv)
     auto simPdf =dynamic_cast<RooSimultaneous*>(mc->GetPdf());
     // Check Nuisance parameters
     RooStatsHelper::CheckNuisPdfConstraint(nuisances, simPdf->getAllConstraints(*observables, *const_cast<RooArgSet*>(nuisances), false));
+
+    stringstream out_ss;
     
     if (options == "" || options.find("pvalue") != string::npos) {
         // get expected limit
@@ -71,7 +74,7 @@ int main(int argc, char** argv)
         if (data_opt == "" || data_opt.find("obs") != string::npos) {
             obs_p0 = RooStatsHelper::getPvalue(ws, mc, obs_data, poi->GetName());
         }
-        if (data_opt.find("exp") != string::npos) {
+        if (data_opt == "" || data_opt.find("exp") != string::npos) {
             bool do_profile = true;
             auto asimov_data = (RooDataSet*) ws->data(asimov_data_name); 
             if(!asimov_data) {
@@ -81,9 +84,14 @@ int main(int argc, char** argv)
         }
         cout << "expected p0: " << exp_p0 << endl;
         cout << "obs p0: " << obs_p0 << endl;
+        out_ss << fix_variables << " " << obs_p0 << " " << exp_p0 << endl;
     } 
     if (options.find("limit") != string::npos){
-        Limit::run_limit(ws, mc, obs_data, poi, asimov_data_name);
+        Limit::run_limit(ws, mc, obs_data, poi, asimov_data_name, &out_ss);
     }
+
+    fstream file_out("stats_results.txt",  fstream::out);
+    file_out << out_ss.str();
+    file_out.close();
     return 0;
 }

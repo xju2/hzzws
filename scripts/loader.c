@@ -23,11 +23,14 @@
 #include <stdio.h>
 #include <string>
 
-gROOT->ProcessLine(Form(".L %s/scripts/AtlasStyle.C", getenv("HZZWSDIR")));
-gROOT->ProcessLine(Form(".L %s/scripts/AtlasUtils.C", getenv("HZZWSDIR")));
-
 using namespace std;
 using namespace RooFit;
+
+#include "AtlasStyle.C"
+#include "AtlasUtils.C"
+// gROOT->ProcessLine(Form(".L %s/scripts/AtlasStyle.C", getenv("HZZWSCODEDIR")));
+// gROOT->ProcessLine(Form(".L %s/scripts/AtlasUtils.C", getenv("HZZWSCODEDIR")));
+
 
 TChain* loader(const char* inFile_name, const char* chain_name = "physics")
 {
@@ -154,7 +157,7 @@ TPad* add_ratio_pad(TH1* h_signal, const TList& h_bkgs)
         }
     }
 
-    AddLine(h_signal, 1);
+    AddLine(h_signal->GetXaxis(), 1);
 
     // plot the comparison
     pad1->cd();

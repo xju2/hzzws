@@ -22,7 +22,6 @@
 #include "Hzzws/Helper.h"
 
 void RooStatsHelper::setDefaultMinimize(){
-  // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
   ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
   ROOT::Math::MinimizerOptions::SetDefaultStrategy(1);
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
@@ -39,7 +38,7 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll,
     if (printLevel < 0) RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
 
     int strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
-    // ROOT::Math::MinimizerOptions::SetDefaultTolerance(1E-12);
+  
     RooMinimizer minim(*nll);
     minim.optimizeConst(2); 
     minim.setStrategy(strat);
@@ -837,6 +836,14 @@ void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options
                 double low_val = var_val*0.8, hi_val = var_val*1.2;
                 par->setRange(low_val, hi_val);
                 par->setVal(var_val);
+                par->setConstant();
+            }
+        } else {
+            auto par = (RooRealVar*) workspace->var(token.c_str());
+            if(!par) {
+                log_warn("%s does not exist", token.c_str());
+            } else {
+                log_info("%s fixed to %.2f", token.c_str(), par->getVal());
                 par->setConstant();
             }
         }

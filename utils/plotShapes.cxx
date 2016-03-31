@@ -144,8 +144,6 @@ int main(int argc, char** argv)
         // obs->setBins(nbins);
     }
 
-    /* fix parameters given in option*/
-    RooStatsHelper::fixVariables(workspace, fix_variables);
 
     // summary of options
     cout<<" Input: " << input_name << endl;
@@ -183,6 +181,9 @@ int main(int argc, char** argv)
         if (mX) mX->setConstant(0);
         if (wX) wX->setConstant(0);
     }
+
+    /* fix parameters given in option*/
+    RooStatsHelper::fixVariables(workspace, fix_variables);
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
     ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);

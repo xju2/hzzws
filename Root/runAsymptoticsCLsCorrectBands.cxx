@@ -225,7 +225,8 @@ void runAsymptoticsCLs(const char* infile,
 
 void run_limit(RooWorkspace* ws_, ModelConfig* mc_, 
         RooDataSet* data_, RooRealVar* firstPOI_, 
-        const char* asimovDataName) 
+        const char* asimovDataName,
+        stringstream* out_ss) 
 {
   TStopwatch timer;
   timer.Start();
@@ -404,7 +405,14 @@ void run_limit(RooWorkspace* ws_, ModelConfig* mc_,
       << mu_up_p1 <<" "
       << mu_up_p2 <<" "
       << obs_limit <<endl;
-
+  if(out_ss) {
+      *out_ss << mu_up_n2 <<" "
+      << mu_up_n1 <<" "
+      << med_limit<<" "
+      << mu_up_p1 <<" "
+      << mu_up_p2 <<" "
+      << obs_limit << endl;
+  }
 
   cout << "Finished with " << nrMinimize << " calls to minimize(nll)" << endl;
   timer.Print();

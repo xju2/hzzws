@@ -10,14 +10,22 @@ submit = True
 do_hist = False
 do_scalar = True
 
-mG_low = 500
-mG_hi = 3500
-mG_step = 20
-kappa_list = [0.00, 0.01, 0.06, 0.1]
+exe = "/afs/cern.ch/user/x/xju/work/h4l/h4lcode/hzzws/bsubs/run_limit.sh"
+cal_opt = "pvalue" # limit,pvalue
+data_opt = "obs" #obs, exp
+ws_name = "combWS"
+mu_name = "xs"
+
+#mG_low = 500
+#mG_hi = 3500
+mG_low = 200
+mG_hi = 2000
+mG_step = 10
+#kappa_list = [0.00, 0.01, 0.06, 0.1]
+kappa_list = [0.01]
 
 n_mG = int((mG_hi - mG_low)/mG_step)
 
-exe = "/afs/cern.ch/user/x/xju/work/h4l/h4lcode/hzzws/bsubs/run_limit.sh"
 out_name = workdir
 if do_hist:
     input_ws = "/afs/cern.ch/user/x/xju/work/diphoton/limits_hist_floating/inputs/2015_Graviton_histfactory_EKHI_v6.root"
@@ -38,12 +46,14 @@ badjobs = []
 print out_name
 for kappa in kappa_list:
     for mG in range(mG_low, mG_hi+mG_step, mG_step):
-        if not do_scalar: option = "mG:"+str(mG)+",GkM:"+str(kappa)
-        else: option = "mX:"+str(mG)+",wX:"+str(kappa)
-        run_cmd = "{} {} combWS xs {} {} {}".format(exe, input_ws,
-                                                    data_name,
-                                                    option, 
-                                                    out_name)
+        if not do_scalar: 
+            fix_vars = "mG:"+str(mG)+",GkM:"+str(kappa)
+        else: 
+            width = mG*kappa
+            fix_vars = "mX:"+str(mG)+",wX:"+str(width)
+        run_cmd = exe+" "+input_ws+" "+ws_name+" "+mu_name+" "+\
+                data_name+" "+fix_vars+" "+cal_opt+" "+data_opt+" "+out_name
+
         if not submit: print run_cmd
         #-G u_zp -q 8nh for atlas sources
         #-G ATLASWISC_GEN -q wisc for wisconsin sources

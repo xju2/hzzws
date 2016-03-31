@@ -4,6 +4,7 @@
 #include "RooNLLVar.h"
 #include "RooAbsReal.h"
 #include <string>
+#include <sstream>
 
 using namespace std;
 using namespace RooFit;
@@ -21,7 +22,8 @@ void runAsymptoticsCLs(const char* infile,
 		       double CL, const char* muName = "mu", const string& fixother = " ");
 void run_limit(RooWorkspace* ws, ModelConfig* mc, 
         RooDataSet* data, RooRealVar* firstPOI, 
-        const char* asimovDataName = "asimovData_0"); 
+        const char* asimovDataName = "asimovData_0",
+        stringstream* out_ss = NULL); 
         
  //for backwards compatibility
 void runAsymptoticsCLs(const char* infile,
