@@ -13,6 +13,7 @@
 #include "RooAbsPdf.h"
 #include "RooSimultaneous.h"
 #include "RooStats/AsymptoticCalculator.h"
+#include "RooMinimizer.h"
 
 #include "Hzzws/RooStatsHelper.h"
 #include "Hzzws/Helper.h"
@@ -25,7 +26,7 @@ int main(int argc, char** argv)
     if ((argc > 1 && string(argv[1]) == "help") ||
             argc < 5)
     {
-        cout << argv[0] << " combined.root ws_name mu_name data_name var:value,var:value option obs,exp" << endl;
+        cout << argv[0] << " combined.root ws_name mu_name data_name mc_name strategy var:value,var:value option obs,exp" << endl;
         cout << "option: pvalue,limit" << endl;
         return 0;
     }
@@ -33,16 +34,29 @@ int main(int argc, char** argv)
     RooStatsHelper::setDefaultMinimize();
     string input_name(argv[1]);
     string wsName(argv[2]);
-    string mcName = "ModelConfig";
     string muName(argv[3]);
     string dataName(argv[4]);
-    int opt_id = 5;
+    string mcName(argv[5]);
+    int opt_id = 6;
+    int strategy =  1;
+    if(argc > opt_id) {strategy = atoi(argv[opt_id]); } opt_id ++;
     string fix_variables = "";
     if(argc > opt_id) { fix_variables = argv[opt_id]; }  opt_id ++;
     string options = "";
     if(argc > opt_id) { options = argv[opt_id]; }  opt_id ++;
     string data_opt = "";
     if(argc > opt_id) { data_opt = argv[opt_id]; }  opt_id ++;
+
+    // summary of options
+    cout<<" Input: " << input_name << endl;
+    cout<<" wsName: " << wsName << endl;
+    cout<<" muName: " << muName << endl;
+    cout<<" dataName: " << dataName << endl;
+    cout<<" mcName: " << mcName << endl;
+    cout<<" strategy: " << strategy << endl;
+    cout<<" Fix variables: " << fix_variables << endl;
+    cout<<" options: " << options << endl;
+    cout<<" data option: " << data_opt << endl;
 
     gSystem->Load("/afs/cern.ch/user/x/xju/public/src/HggTwoSidedCBPdf_cc.so");
     gSystem->Load("/afs/cern.ch/user/x/xju/public/src/HggScalarLineShapePdf_cc.so");
@@ -58,12 +72,13 @@ int main(int argc, char** argv)
     const RooArgSet* observables = mc->GetObservables();
     auto nuisances = mc->GetNuisanceParameters();
     const char* asimov_data_name = "asimovData_0_paz";
-
-    RooStatsHelper::fixVariables(ws, fix_variables);
+    
+    RooStatsHelper::fixVariables(ws, fix_variables, mc);
+    ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
     
     auto simPdf =dynamic_cast<RooSimultaneous*>(mc->GetPdf());
     // Check Nuisance parameters
-    RooStatsHelper::CheckNuisPdfConstraint(nuisances, simPdf->getAllConstraints(*observables, *const_cast<RooArgSet*>(nuisances), false));
+    // RooStatsHelper::CheckNuisPdfConstraint(nuisances, simPdf->getAllConstraints(*observables, *const_cast<RooArgSet*>(nuisances), false));
 
     stringstream out_ss;
     

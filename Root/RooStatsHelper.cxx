@@ -44,7 +44,7 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll,
     minim.setStrategy(strat);
     minim.setPrintLevel(printLevel);
     minim.setProfile();  // print running time
-    minim.setEps(1);
+    minim.setEps(0.001);
 
     // minim.setErrorLevel(1E-3);
 
@@ -813,7 +813,7 @@ bool RooStatsHelper::fixTermsWithPattern(RooStats::ModelConfig* mc, const char* 
     return true;
 }
 
-void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options) 
+void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options, RooStats::ModelConfig* mc) 
 {
     // options can be like: "mG:750,GkM:0.02"
     if (!workspace || options == "") return;
@@ -825,6 +825,10 @@ void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options
     {
         string token(*iter);
         size_t delim_pos = token.find(':');
+        if(token.find("gamma_stat") != string::npos && mc) {
+            fixTermsWithPattern(mc, "gamma_stat");
+            continue;
+        }
         if(delim_pos != string::npos){
             string var_name = token.substr(0, delim_pos);
             double var_val = atof( token.substr(delim_pos+1, token.size()).c_str());

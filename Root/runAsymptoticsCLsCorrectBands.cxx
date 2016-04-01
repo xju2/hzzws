@@ -244,10 +244,9 @@ void run_limit(RooWorkspace* ws_, ModelConfig* mc_,
   ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(defaultPrintLevel);
   //RooNLLVar::SetIgnoreZeroEntries(1);
 
-  // RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat" ) ;
   mc->GetParametersOfInterest()->Print("v");
+  mc->GetNuisanceParameters()->Print("v");
 
-  //RooAbsPdf* pdf = mc->GetPdf();
   obs_nll = createNLL(data);//(RooNLLVar*)pdf->createNLL(*data);
   map_snapshots[obs_nll] = "nominalGlobs";
   map_data_nll[data] = obs_nll;
@@ -927,9 +926,13 @@ int minimize(RooAbsReal* fcn)
 
     int strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
     int save_strat = strat;
+    fcn->enableOffsetting(true);
+
     RooMinimizer minim(*fcn);
     minim.setStrategy(strat);
+    minim.optimizeConst(1);
     minim.setPrintLevel(printLevel);
+    minim.setEps(1);
 
 
     int status = minim.minimize(ROOT::Math::MinimizerOptions::DefaultMinimizerType().c_str(), ROOT::Math::MinimizerOptions::DefaultMinimizerAlgo().c_str());

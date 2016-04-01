@@ -32,9 +32,9 @@ using namespace std;
 int main(int argc, char** argv)
 {
     if ((argc > 1 && string(argv[1]) == "help") ||
-            argc < 2)
+            argc < 6)
     {
-        cout << argv[0] << " combined.root ws_name mu_name data_name bonly with_data do_visual_error min,max strategy color var:value,var:value np1,np2" << endl;
+        cout << argv[0] << " combined.root ws_name mu_name data_name mc_name fitmode with_data do_visual_error min,max strategy color var:value,var:value np1,np2" << endl;
         cout << argv[0] << " configuration" << endl;
         return 0;
     }
@@ -42,13 +42,13 @@ int main(int argc, char** argv)
     string wsName(argv[2]);
     string muName(argv[3]);
     string dataName(argv[4]);
-    string mcName = "ModelConfig";
+    string mcName(argv[5]);
 
-    int opt_id = 5;
+    int opt_id = 6;
 
-    bool is_bonly = false;
+    int fit_mode = -1;
     if (argc > opt_id) {
-        is_bonly = (bool) atoi(argv[opt_id]);
+        fit_mode = atoi(argv[opt_id]);
     }
     opt_id ++;
 
@@ -116,6 +116,10 @@ int main(int argc, char** argv)
     auto* file_in = TFile::Open(input_name.c_str(), "read");
     auto* workspace = (RooWorkspace*) file_in->Get(wsName.c_str());
     auto* mc = (RooStats::ModelConfig*) workspace->obj(mcName.c_str());
+    if(!mc) {
+        cout << "ERROR: no ModelConfig" << endl;
+        exit(1);
+    }
     RooSimultaneous* simPdf = NULL;
     try {
         simPdf = (RooSimultaneous*) mc->GetPdf();
@@ -124,12 +128,15 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    // const RooArgSet* pois = mc->GetParametersOfInterest();
     RooRealVar* obs = (RooRealVar*) mc->GetObservables()->first();
     auto* mu = (RooRealVar*) workspace->var(muName.c_str()); 
     auto* data =(RooDataSet*) workspace->data(dataName.c_str());
     if(!data) {
         log_err("data(%s) does not exist", dataName.c_str());
+        if (dataName.find("asimov") != string::npos) {
+            bool do_profile = false;
+            data = RooStatsHelper::makeAsimovData(workspace, 0.0, 0.0, mu->GetName(), mcName.c_str(), "combData", do_profile);
+        }
         exit(2);
     }
     int nbins = (int) (max_obs-min_obs)/20;
@@ -150,7 +157,7 @@ int main(int argc, char** argv)
     cout<<" wsName: " << wsName << endl;
     cout<<" muName: " << muName << endl;
     cout<<" dataName: " << dataName << endl;
-    cout<<" bonly: " << is_bonly << endl;
+    cout<<" fit mode: " << fit_mode << endl;
     cout<<" withData: " << with_data << endl;
     cout<<" Visual Error: " << do_visual_error << endl;
     cout<<" NP size: " << np_names.size() << endl;
@@ -160,7 +167,8 @@ int main(int argc, char** argv)
 
 
     /* unconditional fit*/
-    if(is_bonly) {
+    if(fit_mode == 0) 
+    { // background only
         mu->setVal(0);
         mu->setConstant();
         RooStatsHelper::fixTermsWithPattern(mc, "ATLAS_");
@@ -169,8 +177,8 @@ int main(int argc, char** argv)
         auto mRes = workspace->var("ATLAS_mRes");
         if(hgg_bias) hgg_bias->setConstant(0);
         if (mRes) mRes ->setConstant(0);
-    } else {
-        // float the masses
+    } else if(fit_mode == 1) 
+    { // signal + background fit
         mu->setConstant(0);
         auto mG = workspace->var("mG");
         auto kappa = workspace->var("GkM");
@@ -180,9 +188,15 @@ int main(int argc, char** argv)
         if (kappa) kappa->setConstant(0);
         if (mX) mX->setConstant(0);
         if (wX) wX->setConstant(0);
-    }
+    } else {}
 
     /* fix parameters given in option*/
+    if(fix_variables.find("gamma") != string::npos) {
+        auto nll = RooStatsHelper::createNLL(data, mc);
+        RooStatsHelper::minimize(nll, workspace, true);
+        RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat");
+        delete nll;
+    }
     RooStatsHelper::fixVariables(workspace, fix_variables);
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
@@ -193,9 +207,9 @@ int main(int argc, char** argv)
     mc->GetNuisanceParameters()->Print("v");
 
 
-    auto* nll = RooStatsHelper::createNLL(data, mc);
+    auto nll = RooStatsHelper::createNLL(data, mc);
     RooFitResult* fit_results = NULL;
-    if (do_visual_error) {
+    if (do_visual_error && fit_mode >= 0) {
         fit_results = RooStatsHelper::minimize(nll, workspace, true);
     }
     // fit_results = NULL;
@@ -220,15 +234,15 @@ int main(int argc, char** argv)
         pdf->Print();
         auto* obs_frame = obs->frame(RooFit::Binning(nbins));
         obs_frame->SetMarkerSize(0.015);
-        int color = 4;
-        /* background only plot */
-        // mu->setVal(0.0);
+        int color = 2;
+
         double bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
         auto* hist_bkg = (TH1F*) pdf->createHistogram(Form("hist_bkg_%s", label_name), *obs, RooFit::Binning(nbins));
         hist_bkg->Scale(bkg_evts/hist_bkg->Integral());
-        cout << "[INFO] bkg only: " << bkg_evts << endl;
+        log_info("number of events: %.2f", bkg_evts);
         RooCmdArg add_arg = (fit_results==NULL)?RooCmdArg::none():RooFit::VisualizeError(*fit_results);
         add_arg.Print();
+        // possibly with band
         pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineWidth(2),
@@ -236,50 +250,28 @@ int main(int argc, char** argv)
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent),
                 add_arg
                 );
+        // no band
         pdf->plotOn(obs_frame, RooFit::LineStyle(1), 
                 RooFit::LineColor(1),
                 RooFit::LineStyle(2),
                 RooFit::LineWidth(1),
                 RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
                 );
-        auto bkg_only_pdf = (RooAbsPdf*) workspace->obj("pdf_background_inclusive_13TeV");
-        bkg_only_pdf->plotOn(obs_frame, 
-                RooFit::LineStyle(1),
-                RooFit::LineColor(1),
-                RooFit::Normalization(bkg_evts, RooAbsReal::NumEvent)
-                );
-        /* signal + background plot */
-        TH1F* hist_sb = NULL;
-        // if(!is_bonly)
-        if(false)
-        {
-            mu->setVal(22.09);
-            double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
-            cout << "[INFO] S+B: " << splusb_evts << endl;
-            hist_sb = (TH1F*) pdf->createHistogram(Form("hist_SB_%s", label_name), *obs, RooFit::Binning(nbins));
-            hist_sb->Scale(splusb_evts/hist_sb->Integral());
-
-            pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
-                    RooFit::LineColor(color++),
-                    RooFit::LineWidth(2),
-                    RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
-                    );
-        }
 
         /* deal with nuisance parameters */
         if(np_names.size() > 0)
         {
-            double sigma_level = 1.0;
+            double sigma_level = 2.0;
             for(auto itr = np_names.begin(); itr != np_names.end(); itr++)
             {
                 string np_name(*itr);
                 auto* np_var = (RooRealVar*) workspace->var(np_name.c_str());
                 if(!np_var) continue;
-                np_var->setVal(1.0);
+                np_var->setVal(sigma_level);
 
                 double splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
-                cout << "[INFO] S+B ("<< sigma_level << " sigma up): " << splusb_evts << endl;
-                auto* hist_sb_2s_up = (TH1F*) pdf->createHistogram(Form("hist_sb_2up_%s", label_name), *obs, RooFit::Binning(nbins));
+                log_info("number of events: %.2f with %s up %.f sigma", splusb_evts, np_name.c_str(), sigma_level);
+                auto hist_sb_2s_up = (TH1F*) pdf->createHistogram(Form("hist_%s_2up_%s", np_name.c_str(), label_name), *obs, RooFit::Binning(nbins));
                 if(hist_sb_2s_up){
                     hist_sb_2s_up->Scale(splusb_evts/hist_sb_2s_up->Integral());
                     out_file->cd();
@@ -291,22 +283,26 @@ int main(int argc, char** argv)
                         RooFit::LineWidth(2),
                         RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
                         );
-                // bkg only
-                mu->setVal(0);
-                bkg_evts = pdf->expectedEvents(RooArgSet(*obs));
-                auto* hist_bkg_2sup = (TH1F*) pdf->createHistogram(Form("hist_bonly_2up_%s", label_name), *obs, RooFit::Binning(nbins));
-                if(hist_bkg_2sup){
-                    hist_bkg_2sup->Scale(bkg_evts/hist_bkg_2sup->Integral());
+
+                np_var->setVal(-1*sigma_level);
+                splusb_evts = pdf->expectedEvents(RooArgSet(*obs));
+                auto* hist_np_2sdown = (TH1F*) pdf->createHistogram(Form("hist_%s_2down_%s", np_name.c_str(), label_name), *obs, RooFit::Binning(nbins));
+                if(hist_np_2sdown){
+                    hist_np_2sdown->Scale(splusb_evts/hist_np_2sdown->Integral());
                     out_file->cd();
-                    hist_bkg_2sup->Write();
-                    delete hist_bkg_2sup;
+                    hist_np_2sdown->Write();
+                    delete hist_np_2sdown;
                 }
+                pdf->plotOn(obs_frame, RooFit::LineStyle(7), 
+                        RooFit::LineColor(color++),
+                        RooFit::LineWidth(2),
+                        RooFit::Normalization(splusb_evts, RooAbsReal::NumEvent)
+                        );
                 np_var->setVal(0);
             }
         }
         out_file->cd();
         hist_bkg->Write();
-        if(hist_sb) hist_sb->Write();
 
         if(data && with_data)
         {
@@ -333,19 +329,16 @@ int main(int argc, char** argv)
         obs_frame->Draw();
         TString out_pdf_name(input_name);
         out_pdf_name.ReplaceAll("root", "pdf");
-        canvas->SaveAs(Form("pdf/%s_%s", label_name, out_pdf_name.Data()));
+        canvas->SaveAs(Form("%s_%s", label_name, out_pdf_name.Data()));
         out_file->cd();
 
         // get error band
         RooCurve* error_band = (RooCurve*) obs_frame->getObject(0);
         RooCurve* nominal = (RooCurve*) obs_frame->getObject(1);
-        RooCurve* bkg_only = (RooCurve*) obs_frame->getObject(2);
         error_band->SetName("error_band");
         nominal ->SetName("nominal");
-        bkg_only ->SetName("bkg_only");
         error_band->Write();
         nominal->Write();
-        bkg_only->Write();
 
         obs_frame->SetName("frame_obs");
         obs_frame->Write();
@@ -353,7 +346,8 @@ int main(int argc, char** argv)
     }
     out_file->Close();
     delete canvas;
-
+    
+    delete nll;
     file_in->Close();
     return 1;
 }

@@ -66,8 +66,8 @@ namespace RooStatsHelper{
             RooRealVar* mu, const RooArgSet* observables);
     double GetObsNevtsOfSignal(RooSimultaneous* simPdf,
             RooRealVar* mu, const RooArgSet* observables, bool subrange);
-    bool fixTermsWithPattern(RooStats::ModelConfig* mc, const char* pat ) ;
-    void fixVariables(RooWorkspace* ws, const string& inputs);
+    bool fixTermsWithPattern(RooStats::ModelConfig* mc, const char* pat) ;
+    void fixVariables(RooWorkspace* ws, const string& inputs, RooStats::ModelConfig* mc = NULL);
 
     bool CheckNuisPdfConstraint(const RooArgSet* nuis, const RooArgSet* pdfConstraint);
 }

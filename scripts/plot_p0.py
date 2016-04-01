@@ -57,7 +57,7 @@ def plot():
     gr_obs1.GetXaxis().SetTitle(x_title)
     gr_obs1.GetYaxis().SetTitle("Local #it{p}_{0}")
     gr_obs1.GetYaxis().SetRangeUser(1E-7, 200.)
-    gr_obs1.GetXaxis().SetRangeUser(200, 2000.)
+    #gr_obs1.GetXaxis().SetRangeUser(200, 2000.)
     gr_obs1.GetXaxis().SetNdivisions(506)
 
     lumi = 3.2
