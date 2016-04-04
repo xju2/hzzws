@@ -164,6 +164,10 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
         const char* muName, 
         bool isRatioLogLikelihood)
 {
+    if(!combined || !mc || !data){
+        log_err("check inputs");
+        return -9999;
+    }
     TString dataname(data->GetName());
 
     cout<<"Getting pvalue for "<< data->GetName()<<endl;
@@ -193,8 +197,14 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
     }
 
     auto combPdf = mc->GetPdf();
+    if(!combPdf) {
+        log_err("overall pdf does not exist!");
+        return -9999;
+    } else {
+        combPdf->Print();
+    }
 
-    PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
+    PrintExpEvts(combPdf, mu, mc->GetObservables());
     RooNLLVar* nll = createNLL(data, mc);
     
     minimize(nll, combined);
@@ -202,7 +212,7 @@ double RooStatsHelper::getPvalue(RooWorkspace* combined,
     cout << "mu_hat for " << data->GetName() << " " << mu->getVal() << 
         " " << mu->getError() << " " << obs_nll_min << endl;
     delete nll;
-    PrintExpEvts((RooSimultaneous*)combPdf, mu, mc->GetObservables());
+    PrintExpEvts(combPdf, mu, mc->GetObservables());
     bool reverse = (mu ->getVal() < 0);
 
     cout<<"Fitting background only hypothesis "<< mu->GetName()<<endl;
@@ -659,10 +669,13 @@ void RooStatsHelper::unfoldConstraints(RooArgSet& initial, RooArgSet& final, Roo
   delete itr;
 }
 
-void RooStatsHelper::PrintExpEvts(RooSimultaneous* simPdf, 
+void RooStatsHelper::PrintExpEvts(RooAbsPdf* inputPdf, 
         RooRealVar* mu, const RooArgSet* obs)
 {
-    const RooCategory& category = *dynamic_cast<const RooCategory*>(&simPdf->indexCat());
+    auto simPdf = dynamic_cast<RooSimultaneous*>(inputPdf);
+    if (!simPdf) return;
+
+    const RooCategory& category = dynamic_cast<const RooCategory&>(simPdf->indexCat());
     TIter cat_iter(category.typeIterator());
     RooCatType* obj;
     double old_mu = mu->getVal();

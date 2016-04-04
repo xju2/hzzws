@@ -62,7 +62,7 @@ namespace RooStatsHelper{
             const string& poi_name, 
             int total, double low, double hi,
             TTree* tree); 
-    void PrintExpEvts(RooSimultaneous* simPdf,
+    void PrintExpEvts(RooAbsPdf* simPdf,
             RooRealVar* mu, const RooArgSet* observables);
     double GetObsNevtsOfSignal(RooSimultaneous* simPdf,
             RooRealVar* mu, const RooArgSet* observables, bool subrange);
