@@ -393,13 +393,13 @@ void SetXTitle(TH1* h1, const char* title)
     h1->GetXaxis()->SetTitleSize(0.05);
 }
 
-void AddLine(TAxis* h1, double y_value)
+void AddLine(TH1* h1, double y_value, int color = 11, int style = 2)
 {
     double x_low = h1->GetBinLowEdge(1);
-    double x_hi = h1->GetBinLowEdge(h1->GetNbins()+1);
+    double x_hi = h1->GetBinLowEdge(h1->GetNbinsX()+1);
     TLine equal_line;
-    equal_line.SetLineColor(11);
-    equal_line.SetLineStyle(2);
+    equal_line.SetLineColor(color);
+    equal_line.SetLineStyle(style);
     equal_line.SetLineWidth(2);
     equal_line.DrawLine(x_low, y_value, x_hi, y_value);
 }
@@ -419,7 +419,8 @@ void ATLAS(double x, double y, int opt = 0)
     }
 }
 
-void DATA(double x, double y, double lumi){
+void DATA(double x, double y, int cms, double lumi){
     myText(x, y, 1, Form("#sqrt{s} = 13 TeV: #scale[0.55]{#int}Ldt = %.1f fb^{-1}", lumi));
+    myText(x, y, 1, Form("#sqrt{s} = %d TeV, %.1f fb^{-1}", cms, lumi));
 }
 #endif

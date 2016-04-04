@@ -28,8 +28,6 @@ using namespace RooFit;
 
 #include "AtlasStyle.C"
 #include "AtlasUtils.C"
-// gROOT->ProcessLine(Form(".L %s/scripts/AtlasStyle.C", getenv("HZZWSCODEDIR")));
-// gROOT->ProcessLine(Form(".L %s/scripts/AtlasUtils.C", getenv("HZZWSCODEDIR")));
 
 
 TChain* loader(const char* inFile_name, const char* chain_name = "physics")
@@ -157,7 +155,7 @@ TPad* add_ratio_pad(TH1* h_signal, const TList& h_bkgs)
         }
     }
 
-    AddLine(h_signal->GetXaxis(), 1);
+    AddLine(h_signal, 1, h_signal->GetLineColor(), h_signal->GetLineStyle());
 
     // plot the comparison
     pad1->cd();
@@ -723,4 +721,45 @@ void compare_hists_from_files(const vector<string>& file_names,
     delete hist_names;
 }
 
+void print_graph(TGraph* gr){
+    if (!gr) return;
+    int n_points = gr->GetN();
+    cout << "N points: " << n_points << endl;
+    cout << "Loop over: " <<  gr->GetName() << endl;
+    double sum = 0;
+    double pre_mass = -1;
+    for (int i = 0; i <= n_points; i++)
+    {
+       Double_t x = -1, y = -1;
+       gr->GetPoint(i, x, y);
+       // cout << i << " " <<  x << " " <<  y << endl;
+       if (x >= 200 && x <= 2000) {
+            if (pre_mass < 0) {
+                pre_mass = x;
+                sum = y;
+            } else {
+                sum += y;
+                pre_mass = x;
+            }
+       }
+    }
+    cout <<"Summation: " << sum << endl;
+    return;
+}
+
+double sum_graph_entries(RooCurve* gr, double low, double hi, int nbins)
+{
+    // cout << "In summation of graph" << endl;
+    double sum = 0;
+    double step = (hi - low) / nbins;
+    for(int i = 0; i < nbins; i++)
+    {
+        double begin =  low + i*step;
+        double end = begin + step;
+        double average = gr->average(begin, end);
+        sum += average;
+        // cout << begin << " " << end << " " << average << " " << endl;
+    }
+    return sum;
+}
 #endif
