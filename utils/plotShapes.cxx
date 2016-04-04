@@ -138,7 +138,7 @@ int main(int argc, char** argv)
         }
         exit(2);
     }
-    int nbins = (int) (max_obs-min_obs)/20;
+    int nbins = (int) (max_obs-min_obs)/5.;
     if(!obs || !mu) {
         file_in->Close();
         return 0;
@@ -150,6 +150,9 @@ int main(int argc, char** argv)
         // obs->setBins(nbins);
     }
 
+    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
+    ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
+    ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
 
     // summary of options
     cout<<" Input: " << input_name << endl;
@@ -198,9 +201,6 @@ int main(int argc, char** argv)
     }
     RooStatsHelper::fixVariables(workspace, fix_variables, NULL);
 
-    ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
-    ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
-    ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(1);
     // print out the message
     mc->GetParametersOfInterest()->Print("v");
     mc->GetNuisanceParameters()->Print("v");
@@ -231,7 +231,7 @@ int main(int argc, char** argv)
         const char* label_name = obj->GetName();
         RooAbsPdf* pdf = simPdf->getPdf(label_name);
         pdf->Print();
-        auto* obs_frame = obs->frame(RooFit::Binning(nbins));
+        auto* obs_frame = obs->frame(min_obs, max_obs, nbins);
         obs_frame->SetMarkerSize(0.015);
         int color = 2;
 
@@ -239,6 +239,7 @@ int main(int argc, char** argv)
         auto* hist_bkg = (TH1F*) pdf->createHistogram(Form("hist_bkg_%s", label_name), *obs, RooFit::Binning(nbins));
         hist_bkg->Scale(bkg_evts/hist_bkg->Integral());
         log_info("number of events: %.2f", bkg_evts);
+        // RooCmdArg add_arg = (fit_results==NULL)?RooCmdArg::none():RooFit::VisualizeError(*fit_results, 1.0, kFALSE);
         RooCmdArg add_arg = (fit_results==NULL)?RooCmdArg::none():RooFit::VisualizeError(*fit_results);
         add_arg.Print();
         // possibly with band
@@ -301,6 +302,7 @@ int main(int argc, char** argv)
             }
         }
         out_file->cd();
+        hist_bkg->SetName(Form("hist_bkg_%s", label_name));
         hist_bkg->Write();
 
         if(data && with_data)
