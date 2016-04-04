@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <sstream>
+#include <cmath>
 
 #include "RooFitResult.h"
 #include "RooMinimizer.h"
@@ -825,31 +826,42 @@ void RooStatsHelper::fixVariables(RooWorkspace* workspace, const string& options
     {
         string token(*iter);
         size_t delim_pos = token.find(':');
+        string var_name = token;
+        double var_val = nan("NaN");
+        if(delim_pos != string::npos){
+            var_name = token.substr(0, delim_pos);
+            var_val = atof( token.substr(delim_pos+1, token.size()).c_str());
+        }
+
         if(token.find("gamma_stat") != string::npos && mc) {
-            fixTermsWithPattern(mc, "gamma_stat");
+            const char* pat = "gamma_stat";
+            RooArgSet nuis(*mc->GetNuisanceParameters());
+            TIter iter(nuis.createIterator());
+            RooRealVar* par = NULL;
+            while( (par = (RooRealVar*) iter()) ) {
+                if(string(par->GetName()).find(pat) != string::npos) {
+                    if(!std::isnan(var_val)) { // use std::isnan to avoid ambigulity
+                        par->setVal(var_val);
+                    }
+                    par->setConstant();
+                    log_info("%s fixed to %.2f", par->GetName(), par->getVal());
+                }
+            }
             continue;
         }
-        if(delim_pos != string::npos){
-            string var_name = token.substr(0, delim_pos);
-            double var_val = atof( token.substr(delim_pos+1, token.size()).c_str());
-            auto par = (RooRealVar*) workspace->var(var_name.c_str());
-            if(!par) {
-                log_warn("%s does not exist", var_name.c_str());
-            } else {
-                log_info("%s fixed to %.2f", var_name.c_str(), var_val);
-                double low_val = var_val*0.8, hi_val = var_val*1.2;
+
+        auto par = (RooRealVar*) workspace->var(var_name.c_str());
+        if(!par) {
+            log_warn("%s does not exist", var_name.c_str());
+            continue;
+        } else {
+            if(!std::isnan(var_val)) {
+                double low_val = var_val - 1, hi_val = var_val + 1;
                 par->setRange(low_val, hi_val);
                 par->setVal(var_val);
-                par->setConstant();
             }
-        } else {
-            auto par = (RooRealVar*) workspace->var(token.c_str());
-            if(!par) {
-                log_warn("%s does not exist", token.c_str());
-            } else {
-                log_info("%s fixed to %.2f", token.c_str(), par->getVal());
-                par->setConstant();
-            }
+            par->setConstant();
+            log_info("%s fixed to %.2f", var_name.c_str(), par->getVal());
         }
     }
 }

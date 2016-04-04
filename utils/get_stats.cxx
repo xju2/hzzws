@@ -69,14 +69,14 @@ int main(int argc, char** argv)
     auto mc = (RooStats::ModelConfig*) ws->obj(mcName.c_str());
     auto obs_data = (RooDataSet*) ws->data(dataName.c_str());
     auto poi = (RooRealVar*) ws->var(muName.c_str());
-    const RooArgSet* observables = mc->GetObservables();
-    auto nuisances = mc->GetNuisanceParameters();
+    // const RooArgSet* observables = mc->GetObservables();
+    // auto nuisances = mc->GetNuisanceParameters();
     const char* asimov_data_name = "asimovData_0_paz";
     
     RooStatsHelper::fixVariables(ws, fix_variables, mc);
     ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
     
-    auto simPdf =dynamic_cast<RooSimultaneous*>(mc->GetPdf());
+    // auto simPdf =dynamic_cast<RooSimultaneous*>(mc->GetPdf());
     // Check Nuisance parameters
     // RooStatsHelper::CheckNuisPdfConstraint(nuisances, simPdf->getAllConstraints(*observables, *const_cast<RooArgSet*>(nuisances), false));
 

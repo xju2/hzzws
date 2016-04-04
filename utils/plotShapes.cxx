@@ -35,7 +35,6 @@ int main(int argc, char** argv)
             argc < 6)
     {
         cout << argv[0] << " combined.root ws_name mu_name data_name mc_name fitmode with_data do_visual_error min,max strategy color var:value,var:value np1,np2" << endl;
-        cout << argv[0] << " configuration" << endl;
         return 0;
     }
     string input_name(argv[1]);
@@ -114,7 +113,7 @@ int main(int argc, char** argv)
     
    
     auto* file_in = TFile::Open(input_name.c_str(), "read");
-    auto* workspace = (RooWorkspace*) file_in->Get(wsName.c_str());
+    auto workspace = (RooWorkspace*) file_in->Get(wsName.c_str());
     auto* mc = (RooStats::ModelConfig*) workspace->obj(mcName.c_str());
     if(!mc) {
         cout << "ERROR: no ModelConfig" << endl;
@@ -197,7 +196,7 @@ int main(int argc, char** argv)
         RooStatsHelper::fixTermsWithPattern(mc, "gamma_stat");
         delete nll;
     }
-    RooStatsHelper::fixVariables(workspace, fix_variables);
+    RooStatsHelper::fixVariables(workspace, fix_variables, NULL);
 
     ROOT::Math::MinimizerOptions::SetDefaultMinimizer("Minuit2");
     ROOT::Math::MinimizerOptions::SetDefaultStrategy(strategy);
