@@ -328,6 +328,10 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     obsAndWeight.add(*combined->var(weightName));
 
     RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mcInWs->GetPdf());
+    if(!simPdf) {
+        log_err("cannot cast %s to RooSimultaneous", mcInWs->GetPdf()->GetName());
+        return NULL;
+    }
     map<string, RooDataSet*> asimovDataMap;
 
     RooCategory* channelCat = (RooCategory*)&simPdf->indexCat();

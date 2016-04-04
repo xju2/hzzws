@@ -95,7 +95,8 @@ int main(int argc, char** argv)
             if(!asimov_data) {
                 asimov_data = RooStatsHelper::makeAsimovData(ws, 0.0, 0.0, poi->GetName(), mcName.c_str(), dataName.c_str(), do_profile);
             }
-            exp_p0 = RooStatsHelper::getPvalue(ws, mc, asimov_data, poi->GetName()); 
+            if(asimov_data) 
+                exp_p0 = RooStatsHelper::getPvalue(ws, mc, asimov_data, poi->GetName()); 
         }
         cout << "expected p0: " << exp_p0 << endl;
         cout << "obs p0: " << obs_p0 << endl;
