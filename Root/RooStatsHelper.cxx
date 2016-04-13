@@ -41,7 +41,7 @@ RooFitResult* RooStatsHelper::minimize(RooNLLVar* nll,
     int strat = ROOT::Math::MinimizerOptions::DefaultStrategy();
   
     RooMinimizer minim(*nll);
-    minim.optimizeConst(2); 
+    // minim.optimizeConst(2); 
     minim.setStrategy(strat);
     minim.setPrintLevel(printLevel);
     minim.setProfile();  // print running time
