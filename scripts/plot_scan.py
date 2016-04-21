@@ -1,43 +1,37 @@
 #!/usr/bin/env python
+import os
+
+import AtlasStyle
 import ROOT
 ROOT.gROOT.SetBatch()
-import AtlasStyle
 
-script_dir = os.getenv("HZZWSCODEDIR")+"/scripts/"
+SCRIPT_DIR = os.getenv("HZZWSCODEDIR")+"/scripts/"
+print SCRIPT_DIR
 if not hasattr(ROOT, "getGraphFromFile"):
-    ROOT.gROOT.LoadMacro(script_dir+"/draw1DNLL.cxx")
+    ROOT.gROOT.LoadMacro(SCRIPT_DIR+"/draw1DNLL.cxx")
 
-import os
 if not hasattr(ROOT, "loader"):
-    ROOT.gROOT.LoadMacro(script_dir+"/loader.c") 
+    ROOT.gROOT.LoadMacro(SCRIPT_DIR+"/loader.c")
 
-def plot(f1_name, f2_name, 
-         tree_name = "physics", nll_name = "NLL", poi_name ="mu", 
-         x_title = "#mu"):
+def plot(f1_name,
+         poi_name="mu", x_title="#mu",
+         tree_name="physics", nll_name="NLL",
+        ):
     canvas = ROOT.TCanvas("canvas", "canvas", 600, 600)
     ROOT.SetAtlasStyleCanvas(canvas, True)
     minMu = ROOT.Double(-999)
     mulow = ROOT.Double(-999)
     muHi =  ROOT.Double(-999)
-    file_name,l1_name = f1_name.split(':')
-    f_exp_name,l2_name = f2_name.split(':')
+    file_name, l1_name = f1_name.split(':')
 
     graph = ROOT.getGraphFromFile(
         file_name,
-        tree_name, nll_name, poi_name, 
+        tree_name, nll_name, poi_name,
         minMu, mulow, muHi)
     graph.SetLineWidth(2)
 
-    graph2 = ROOT.getGraphFromFile(
-        f_exp_name,
-        tree_name, nll_name, poi_name, 
-        minMu, mulow, muHi)
-    graph2.SetLineWidth(2)
-    graph2.SetLineColor(4)
-    
     mg = ROOT.TMultiGraph()
     mg.Add(graph, "L")
-    mg.Add(graph2, "L")
     mg.Draw("A")
     mg.GetXaxis().SetTitle(x_title)
     mg.GetYaxis().SetTitle("-2ln#Lambda")
@@ -51,7 +45,7 @@ def plot(f1_name, f2_name,
     x_off_sigma = xmax+0.08
     y_off_sigma = 0.08
     onesigma.DrawLine(xmin, y_var, xmax, y_var)
-    ROOT.myText(x_off_sigma, y_var-y_off_sigma , 1, "1#sigma", False)
+    ROOT.myText(x_off_sigma, y_var-y_off_sigma, 1, "1#sigma", False)
     y_var = 4.0
     onesigma.DrawLine(xmin, y_var, xmax, y_var)
     ROOT.myText(x_off_sigma, y_var-y_off_sigma, 1, "2#sigma", False)
@@ -62,19 +56,13 @@ def plot(f1_name, f2_name,
     x_off_title = 0.185
     lumi_weight = 3.21
     ROOT.myText(x_off_title, 0.85, 1, "#bf{#it{ATLAS}} Internal")
-    ROOT.myText(x_off_title, 0.80, 1, "m_{#chi} = 1 GeV")
+    #ROOT.myText(x_off_title, 0.80, 1, "m_{#chi} = 1 GeV")
     ROOT.myText(x_off_title, 0.75, 1, "13 TeV, {:.2f} fb^{{-1}}".format(lumi_weight))
     legend = ROOT.myLegend(0.6, 0.7, 0.8, 0.9)
     legend.AddEntry(graph, l1_name, "l")
-    legend.AddEntry(graph2, l2_name, "l")
     legend.Draw()
 
     canvas.SaveAs(file_name.replace("root",'pdf'))
 
 if __name__ == "__main__":
-    #plot("scan_mu_nominal.root")
-    #plot("scan_mu_small_EL_new.root")
-    #plot("scan_mu_obs_v3_new.root")
-    plot("roberto_scan/03_12_2015_new_ttH_data.root:observed N_{s}", 
-         "roberto_scan/03_12_2015_new_ttH_expected.root:expected N_{s}",
-         "ToyTree", "nll_1D", "nexpt_1D", "N_{s}")  #nexpt_1D, mu_1D
+    plot("test_mass.root:observed m_{H}", "mH", "m_{H} [GeV]")

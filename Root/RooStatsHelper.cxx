@@ -596,18 +596,15 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
         log_err("POI: %s does not exist", poi_name.c_str());
         return false;
     }
-    RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mc_config->GetPdf());
+    // RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mc_config->GetPdf());
 
-    RooRealVar* m4l = (RooRealVar*) ws->var("m4l");
-    m4l->setRange("signal", 118, 129);
     bool is_fixed_poi = poi->isConstant();
     poi->setConstant(false);
 
-    double val_nll, val_poi, val_status, obs_sig;
+    double val_nll, val_poi, val_status;
     tree->Branch("NLL", &val_nll, "NLL/D");
     tree->Branch("Status", &val_status, "NLL/D");
     tree->Branch(poi_name.c_str(), &val_poi, Form("%s/D",poi_name.c_str()));
-    tree->Branch("obs_sig", &obs_sig, "obs_sig/D");
 
     TStopwatch timer;
     timer.Start();
@@ -621,8 +618,6 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
     val_nll = nll ->getVal();
     val_poi = poi->getVal();
     val_status = status;
-    bool do_subrange = false;
-    obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
     tree->Fill();
     double step = (hi-low)/total;
     for(int i = 0; i < total; i++){
@@ -633,7 +628,6 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
         val_nll = nll ->getVal();
         val_poi = poi->getVal();
         val_status = status;
-        obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
         tree->Fill();
     }
     if(!is_fixed_poi) poi->setConstant(false);

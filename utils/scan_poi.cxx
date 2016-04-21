@@ -24,13 +24,15 @@ int main(int argc, char** argv)
     string muName = "mu";
     int err_id = 0;
     if((argc > 1 && string(argv[1]).find("help") != string::npos) ||
-            argc < 3)
+            argc < 7)
     {
-        cout << argv[0] << " combined.root out.root ws_name mu_name data_name 100:0:3 mH:110:140,mu:0:20" << endl;
+        cout << argv[0] << " combined.root out.root ws_name mu_name data_name mH:100:120:130 mH:125.,mu:1.0" << endl;
         cout << "ws_name: name of RooWorkspace" << endl;
-        cout << "mu_name: POI name, that needs to be scanned" << endl;
-        cout << "100:0:3, scan mu in range of (0, 3) with 100 bins " << endl;
-        cout << "data_name: observed data or asimovData_1_0. AsimovData follow convention: asimovData_1_0, 1 is mu value, 0 is mu value profiled to (-1 means no profile)" << endl;
+        cout << "mu_name: POI name" << endl;
+        cout << "mH:100:120:130, scan mH in range of (120, 130) with 100 bins " << endl;
+        cout << "data_name: observed data or asimovData_1_0." << endl;
+        cout << "\tAsimovData follow convention: asimovData_1_0, 1 is mu value, 0 is mu value profiled to (-1 means no profile)" << endl;
+        cout << "mH:125,mu:1.0, set variable to this value and constant" << endl;
         exit(++err_id);
     }
 
@@ -44,40 +46,44 @@ int main(int argc, char** argv)
     // set binning and range for POI
     int nbins = 100;
     double low = 0, hi = 3;
+    string scan_var_name = "";
     if (argc > opt_id) {
         string options(argv[opt_id]);
         vector<string> tokens;
         Helper::tokenizeString(options, ':', tokens);
-        if (tokens.size() != 3) {
-            cout << "range setting for POI is wrong: " << options << endl;
+        cout <<"scan variable: " << options << endl;
+        if (tokens.size() != 4) {
+            cout << "scan variable setting is wrong: " << options << endl;
+            cout << "e.g.: mH:100:120:130" << endl;
             exit(++err_id);
         } else {
-            nbins = atoi(tokens.at(0).c_str());
-            low = (double) atof(tokens.at(1).c_str());
-            hi = (double) atof(tokens.at(2).c_str());
+            scan_var_name = tokens.at(0).c_str();
+            nbins = atoi(tokens.at(1).c_str());
+            low = (double) atof(tokens.at(2).c_str());
+            hi = (double) atof(tokens.at(3).c_str());
         }
     }
+    opt_id ++;
 
     // set range for other parameters
-    map<string, pair<double, double> > map_var_range;
+    map<string, double> map_var_range;
     if(argc > opt_id) {
         string options(argv[opt_id]);
-        cout << "range: " << options << endl;
+        cout << "constant: " << options << endl;
         vector<string> tokens;
         Helper::tokenizeString(options, ',', tokens);
         for(auto iter = tokens.begin(); iter != tokens.end(); iter++){
             string token(*iter);
             vector<string> values;
             Helper::tokenizeString(token, ':', values);
-            if (values.size() != 3) {
-                cout << "range setting is wrong: " << token << endl;
+            if (values.size() != 2) {
+                cout << "constant is wrong: " << token << endl;
                 exit(++err_id);
             }
-            double low_va = (double) atof(values.at(1).c_str());
-            double hi_va = (double) atof(values.at(2).c_str());
-            map_var_range[values.at(0)] = make_pair(low_va, hi_va);
+            map_var_range[values.at(0)] = static_cast<double>(atof(values.at(1).c_str()));
         }
     }
+    opt_id ++;
 
     auto* file_in = TFile::Open(input_name.c_str(), "read");
     auto* workspace = (RooWorkspace*) file_in->Get(wsName.c_str());
@@ -85,14 +91,13 @@ int main(int argc, char** argv)
     if (map_var_range.size() > 0) {
         for(auto it = map_var_range.begin(); it != map_var_range.end(); it++){
             string var_name(it->first);
-            double low = (it->second).first;
-            double hi = (it->second).second;
             auto par = (RooRealVar*) workspace->var(var_name.c_str());
+            auto value = it->second;
             if(!par){
                 log_warn("%s does not exist!", var_name.c_str());
             } else {
-                log_info("%s set range to [%.2f, %.2f]", var_name.c_str(), low, hi);
-                par->setRange(low, hi);
+                log_info("%s set to [%.2f]", var_name.c_str(), value);
+                par->setVal(value);
             }
         }
     }
@@ -115,10 +120,11 @@ int main(int argc, char** argv)
             dataName = data->GetName();
         }
     }
-
+    auto poi =  workspace->var(muName.c_str());
+    poi->setConstant(false);
     TTree* physics = new TTree("physics", "physics");
-    RooStatsHelper::ScanPOI(workspace, dataName, 
-            muName.c_str(), nbins, low, hi, physics);
+    RooStatsHelper::ScanPOI(workspace, dataName,
+            scan_var_name.c_str(), nbins, low, hi, physics);
 
     auto* file_out = TFile::Open(out_name.c_str(), "RECREATE");
     file_out ->cd();
@@ -127,4 +133,5 @@ int main(int argc, char** argv)
 
     delete physics;
     file_in->Close();
+    return 0;
 }

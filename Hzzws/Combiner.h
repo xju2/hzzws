@@ -1,6 +1,6 @@
-// 
+//
 //    Description:  Combining each category
-// 
+//
 #ifndef __HZZWS_COMBINER_H__
 #define __HZZWS_COMBINER_H__
 #include "Hzzws/SampleBase.h"
@@ -19,7 +19,7 @@
 #include <map>
 using namespace std;
 class Combiner{
-    
+
     public:
         explicit Combiner(const char* _name, const char* _configName);
 
@@ -29,6 +29,7 @@ class Combiner{
         virtual ~Combiner();
 
     private:
+        // attributes
         TString ws_name_; // name of workspace
         string simpdf_name; // simutaneous pdf's name
         string mainSectionName; // main section name
@@ -50,6 +51,7 @@ class Combiner{
         SystematicsManager* sysMan;
         RooArgSet obs;
 
+        // operations
         string findCategoryConfig(string& cat_name, const char* name);
         SampleBase* getSample(string& name);
 
@@ -58,5 +60,9 @@ class Combiner{
         void configWorkspace(RooWorkspace* ws);
         void AddKeysSample(SampleBase& param, const string& config_file);
         string GetTCut(const string& ch_name);
+        void GetObsInfo(const string& obs_str_tmp, vector<string>& names,
+                vector<double>& low_values,
+                vector<double>& high_values,
+                vector<double>* nbins = NULL);
 };
 #endif
