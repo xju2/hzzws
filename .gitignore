@@ -9,3 +9,4 @@ share/*.list
 *log
 *.root
 *txt
+scripts/*.pyc

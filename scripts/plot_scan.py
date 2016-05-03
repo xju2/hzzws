@@ -65,4 +65,4 @@ def plot(f1_name,
     canvas.SaveAs(file_name.replace("root",'pdf'))
 
 if __name__ == "__main__":
-    plot("test_mass.root:observed m_{H}", "mH", "m_{H} [GeV]")
+    plot("test_mass_new.root:observed m_{H}", "mH", "m_{H} [GeV]")

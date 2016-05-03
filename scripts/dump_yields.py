@@ -1,63 +1,51 @@
 #!/usr/bin/env python
 import ROOT
-ROOT.gROOT.SetBatch()
-if not hasattr(ROOT, "loader"):
-    ROOT.gROOT.LoadMacro("/afs/cern.ch/user/x/xju/tool/loader.c") 
 import os
 
-import low_mass
-import high_mass
-import monoH 
-import zp2hdm
+import branches
+import analysis
 import common
 
+ROOT.gROOT.SetBatch()
+if not hasattr(ROOT, "loader"):
+    ROOT.gROOT.LoadMacro("/afs/cern.ch/user/x/xju/tool/loader.c")
+
 class DumpYield:
-    def __init__(self, config):
-        self.config = config
-        #print self.config.categories
+    """
+    get yields for each category for each analysis
+    """
+    def __init__(self):
         self.scale = 1.0
         self.branching_ratio = 1.0
         self.lumi_weight = 1.0
 
-    def get_yield(self, file_name, w_name = "weight"):
-        out = ""
-        yy = []
-        if "342556" in file_name or "qq2ZZ" in file_name:
-            if w_name != "": w_name = w_name+"*w_EW"
+    def get_yield(self, file_name, categories,
+                  weight_name, width, format_):
         if not os.path.isfile(file_name):
             print file_name," cannot be found"
             return (None, None)
-        chain = ROOT.loader(file_name, common.tree_name)
-        h1 = ROOT.TH1F("h1", "h1", 3, 0, 3000);
-        ntotal = chain.GetEntries()
-        branch_name = self.config.branch.split(',')[0]
-        try:
-            min_value = float(self.config.branch.split(',')[2])
-            max_value = float(self.config.branch.split(',')[3])
-        except ValueError:  
-            print "cannot find range of: ", self.config.branch
-            min_value = 110
-            max_value = 140
-            #print file_name, branch_name, max_value
 
-        for category, cuts in sorted(self.config.categories.iteritems()):
-            if w_name == "":  newcut = ""
-            else: newcut = w_name+"*3.2095/3.316*"
-            if self.scale < 0:
-                newcut = w_name+"/w_br/w_xs*"
-            newcut += cuts[:-1]+" && "+branch_name+">"+str(min_value)+\
-                    " && "+branch_name+"<"+str(max_value)+")"
-            #print newcut
-            chain.Draw(branch_name+">>h1", newcut)
-            #print category,h1.GetEntries()
-            #result = "{:.7f}".format(h1.Integral()*self.branching_ratio*self.lumi_weight)
-            result = "{:.1E}".format(h1.Integral()*self.branching_ratio*self.lumi_weight)
-            out += " & "+ result
-            yy.append(result)
-        out += ' \\\\ \n'
-        #print out
-        return out,yy
-    
+        chain = ROOT.loader(file_name, common.tree_name)
+        print "file: ", file_name, chain.GetEntries()
+
+        out_text = ""
+        out_list = []
+        out_text = " & ".join([str(x) for x in categories])
+        out_text += '\n'
+        for category in categories:
+            newcut = weight_name+"*"+category.cut
+            histname = "hist_"+category.name
+            br = category.branch
+            h1 = br.create_hist(histname)
+            chain.Draw(br.name+">>"+histname, newcut)
+            yields = h1.Integral(1, h1.GetNbinsX())*self.branching_ratio*self.lumi_weight
+            result = "{0:{width}{form}}".format(yields, form=format_, width=width)
+            out_list.append(result)
+
+        out_text += " & ".join(out_list)
+        out_text += ' \\\\ \n'
+        return (out_text, out_list)
+
     def get_met_yield(self, file_name, met_name):
         yy = []
         if not os.path.isfile(file_name):
@@ -87,23 +75,24 @@ class DumpYield:
             out += self.get_yield(sp_value)[0]
         return out
 
-    def get_table(self, mass):
+    def get_table(self, analysis_, mass, width=4, pat=".2E"):
         out = ""
         ncount = 0
-        for key, value in sorted(self.config.categories.iteritems()):
-            if ncount == 0: out += key
-            else: out += ' & '+ key
+        for category in analysis_.categories:
+            if ncount == 0: out += category.name
+            else: out += ' & '+ category.name
             ncount += 1
-        out += '\n' 
-        try:
-            self.scale = self.config.samples_sig_scale
-            if self.config == monoH: self.branching_ratio = 1.25e-4
-            out += self.print_yield(self.config.samples_sig[mass])
-        except:
-            pass
-        self.scale = self.config.samples_bkg_scale
-        self.branching_ratio = 1.0
-        out += self.print_yield(self.config.samples_bkg)
+        out += '\n'
+        for sample_ in analysis_.samples:
+            if sample_ in analysis_.signal:
+                mass_ = mass
+            else:
+                mass_ = -1
+            _, text = self.get_yield(sample_.get_file(mass_),
+                                analysis_.categories,
+                               "weight", width, pat)
+            if text is None: continue
+            out += sample_.name+" "+" & ".join(text)+"\n"
         return out
 
     def get_sys_text(self, in_name, out_name, add_met = False):
@@ -346,8 +335,23 @@ def get_ttbar_zjets_for_monoH():
     out += 'zjets: {:.2E} {:.2E}\n'.format(total_z_hi, total_z_low)
     print out
 
+def test():
+    dump = DumpYield()
+    ana = analysis.LOWMASS
+    width = 4
+    pat = ".2E"
+    mass = 126
+    for mc in ana.samples:
+        f1 = mc.get_file(mass)
+        if not f1: continue
+        text, _ = dump.get_yield(f1, ana.categories,
+                                 "weight", width, pat)
+        print f1
+        print text
+
 if __name__ == '__main__':
-    get_monoH_signal()
+    test()
+    #get_monoH_signal()
     #call_shape_sys()
     #print get_ana_yield(monoH, "200")
     #get_sys()

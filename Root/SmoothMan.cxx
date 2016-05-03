@@ -120,7 +120,7 @@ void SmoothMan::processSmoother(Smoother *sm, const string& infile_name)
         cout << "Category: " << c << endl;
 
         string cut = m_dic[c]["cut"];
-        
+
         if (m_dic[c].count("treename") && m_dic[c].count("branch") && m_dic[c].count("observables")) {
             string onametemp, treenametemp;
             RooArgSet treeobstemp;

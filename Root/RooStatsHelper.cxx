@@ -253,6 +253,10 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
 
     RooStats::ModelConfig* mcInWs = (RooStats::ModelConfig*) combined->obj(mcname);
     RooRealVar* mu = (RooRealVar*) combined->var(muName);
+    if(!mu){
+        cout <<"cannot find mu"<<endl;
+        return NULL;
+    }
     mu->setVal(muval);
 
     const RooArgSet& mc_globs = *mcInWs->GetGlobalObservables();

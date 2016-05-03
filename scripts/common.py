@@ -10,6 +10,9 @@ minitree_sys = \
 minitree_bkg = \
         "/afs/cern.ch/atlas/groups/HSG2/H4l/run2/2015/MiniTrees/Prod_v03/mc/Background/CR/"
 
+data = minitree_dir+"../../data15_grl_v73.root"
+tree_name = "tree_incl_all"
+
 #new minitree for shape systematics 
 #e.g. __1down, __1up
 shape_sys_list = [
@@ -49,7 +52,6 @@ met_sys_list = [
     ("met_et_MET_SoftTrk_Scale", "ATLAS_MET_SoftTrk_Scale"),
 ]
 
-tree_name = "tree_incl_all"
 #smooth_cmd = os.getenv("HZZWSCODEDIR")+"/bin/smooth"
 #pvalue_cmd = os.getenv("HZZWSCODEDIR")+"/bin/pvalue"
 
@@ -100,8 +102,5 @@ def get_shape_downup(file_name, shape_sys):
         file_up = minitree_sys+shape_sys+"Perp/"+base_name
     return (file_down, file_up)
 
-def check_file(file_name):
-    if not os.path.isfile(file_name):
-        print file_name," does not exist"
-        return False
-    return True
+if __name__ == "__main__":
+    print minitree_dir

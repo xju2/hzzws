@@ -347,7 +347,10 @@ void Combiner::readConfig(const char* configName)
         for(int i=0; i<(int)observables.size(); ++i){
             workspace ->import(*observables[i], RooFit::RecycleConflictNodes());
         }
-        workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());
+        workspace ->import(*final_pdf, 
+                RooFit::RecycleConflictNodes(),
+                RooFit::RenameVariable("m4l_constrained", "m4l")
+                );
 
 
         //////////////////////////////////////////////////////////////
