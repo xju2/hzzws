@@ -23,12 +23,12 @@ class PrepareWS:
         self.wsdir="workspaces/"
         if not os.path.isdir(self.wsdir):
             os.mkdir(self.wsdir)
-        self.ws_type, self.config = info
+        self.ws_type, self.config = info 
         self.sample_dict = common.samples
         if (self.config == monoH):
             print "You are doing monoH!"
             self.sample_dict = common.samples_monoH
-
+        
         #########################
         # smooth histograms
         #########################
@@ -366,6 +366,7 @@ class PrepareWS:
         with open(out_list, 'w') as f:
             f.write('\n'.join(sorted(combined_np)))
         print "write to: ",out_list
+            
 
 def run_pvalue(config):
     out =""

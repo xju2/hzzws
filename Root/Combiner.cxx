@@ -15,521 +15,324 @@
 #include "RooStats/ModelConfig.h"
 
 #include "Hzzws/Helper.h"
-#include "Hzzws/SampleHist.h"
+#include "Hzzws/SampleFactory.h"
+#include "Hzzws/CoefficientFactory.h"
 #include "Hzzws/CBGauss.h"
 #include "Hzzws/SampleKeys.h"
+#include "Hzzws/RooStatsHelper.h"
 
 Combiner::Combiner(const char* _name, const char* _configName):
     ws_name_(_name),
-    simpdf_name("simPdf"),
-    mainSectionName("main"),
     config_name_(_configName)
 {
     cout<<"workspace name: "<< ws_name_ << endl;
+    cout<<"configuration name: " << config_name_ << endl;
     file_path_ = "./";
     data_chain = nullptr;
     workspace = nullptr;
-    lumi_factor_ = 1.0;
 }
 
 Combiner::~Combiner(){
+    if(workspace) delete workspace;
     if(data_chain) delete data_chain;
     if(sysMan) delete sysMan;
-    for(auto& sample : allSamples) delete sample.second;
-    if(workspace) delete workspace;
+    for(auto& coef : allCoefficients) delete coef.second;
 }
 
 void Combiner::readConfig(const char* configName)
 {
-    Helper::readConfig(configName, '=', all_dic);
-    Helper::printDic<string>(all_dic);
-    workspace = new RooWorkspace("combined");
+  Helper::readConfig(configName, '=', all_dic);
+  Helper::printDic<string>(all_dic);
+  workspace = new RooWorkspace("combined");
 
-    auto& job_dic = all_dic.at(mainSectionName);
+  auto& job_dic = all_dic.at("main");
 
-    try {
-        file_path_ = job_dic.at("fileDir");
-    } catch (const out_of_range& oor) {
-        cout << "'fileDir' not specific, look in current directory" << endl;
+  try {
+    file_path_ = job_dic.at("fileDir")+"/";
+  } catch (const out_of_range& oor) {
+    cout << "'fileDir' not specific, look in current directory" << endl;
+  }
+  std::cout<<"looking for files in "<<file_path_<<std::endl;
+  Helper::getInputPath(file_path_);
+
+  ///////////////////////////////////
+  //load coefficients
+  ///////////////////////////////////
+
+  std::cout<<"reading in coefficients"<<std::endl;
+  if (all_dic.find("coefficients")==all_dic.end()){
+    log_err("No coefficients provided! aborting");
+     exit(-1);
+  }
+  for (auto& sample : all_dic.at("coefficients")) {
+    std::cout<<"on coef of sample "<<sample.first<<std::endl;
+
+    //format
+    // {sampleName} = {coefficient formula} : {{args}}
+
+    auto newcoef = CoefficientFactory::CreateCoefficient(sample.second);
+
+    if (!newcoef){
+      log_err("Failed to add coefficient for sample %s! Critical failure: aborting Combiner!", sample.first.c_str()); exit(-1);
     }
-    std::cout<<"looking for files in "<<file_path_<<std::endl;
-    Helper::getInputPath(file_path_);
+
+    allCoefficients[sample.first] = newcoef;
+  }
+
+  cout << "Added " << allCoefficients.size() << " Coefficients" << endl;
+
+  ///////////////////////////////////
+  //load systematics
+  ///////////////////////////////////
+  try {
+    string NP_list = job_dic.at("NPlist") ;
+    sysMan = new SystematicsManager(Form("%s/%s", file_path_.c_str(), NP_list.c_str()));
+  } catch (const out_of_range& oor) {
+    sysMan = new SystematicsManager();
+    cerr << "NPlist is not defined, meaning no systematics used" << endl;
+  }
+
+  ///////////////////////////////////
+  // load the data
+  ///////////////////////////////////
+  try {
+    string input_data = job_dic.at("data");
+    data_chain = Helper::loader(input_data.c_str(), "tree_incl_all");
+    cout << "you are adding DATA!!" << endl;
+  } catch (const out_of_range& oor) {
+    cout << "no datai: I am blind!!" << endl;
+  }
+
+  ///////////////////////////////////
+  //add categories
+  ///////////////////////////////////
+  istringstream iss_cat( job_dic["categories"] );
+  string category_name;
+  RooCategory channelCat("channelCat", "channelCat");
+  map<string, RooAbsPdf*> pdfMap;
+  map<string, RooDataSet*> dataMap;
+  int catIndex = 0;
+  char delim = ',';
+
+  while( getline( iss_cat, category_name, delim ))
+  {
+    boost::algorithm::trim(category_name);
+    cout << "====================================" << endl;
+    cout <<"On category: "<< category_name << endl;
+
+    string mcsets = findCategoryConfig(category_name, "mcsets");
+    if(mcsets == "") {
+      log_err("No corresponding MC set! %s will be dropped!", category_name.c_str());
+      continue;
+    }
+
+    vector<string> mcsets_names;
+    Helper::tokenizeString( mcsets, ',', mcsets_names) ;
+    Category* category = new Category(category_name);
 
     ///////////////////////////////////
-    // check if normalization table exists
+    // add observables
     ///////////////////////////////////
-    try {
-        string table_name = job_dic.at("normalization");
-        table_name = file_path_ + "/" + table_name; 
-        Helper::readNormTable(table_name.c_str(), all_norm_dic_, 
-                lumi_factor_);
-        Helper::printDic<double>(all_norm_dic_);
-    } catch (const out_of_range& oor) {
-        cout << "'normalization' not specific, get expected from histogram." << endl;
-    }
-    
-    ////////////////////////////////////
-    //load samples
-    ////////////////////////////////////
-    Helper::tokenizeString(job_dic.at("categories"), ',', all_categories_);
-    string obs_str_tmp = job_dic["observable"];
-    vector<string> obsPara_tmp, obsPara_name, obsPara_name_tokenized;
-    vector<int> obsPara_bins;
-    vector<double> var_low_vec, var_hi_vec;
-    Helper::tokenizeString(obs_str_tmp, ',', obsPara_tmp);
-  
-    if(obsPara_tmp.size()%4==0) {         // var, bins, var_low, var_high
-       var_low_ = (double) atof(obsPara_tmp.at(2).c_str());
-       var_hi_ = (double) atof(obsPara_tmp.at(3).c_str());
-
-       for (int i = 0; i < (int) obsPara_tmp.size(); i=i+4) {
-         obsPara_name.push_back(obsPara_tmp.at(i).c_str());
-         obsPara_bins.push_back((int) atof(obsPara_tmp.at(i + 1).c_str()));
-	 var_low_vec.push_back((double) atof(obsPara_tmp.at(i + 2).c_str()));
-	 var_hi_vec.push_back((double) atof(obsPara_tmp.at(i + 3).c_str()));
-       }
-
-    } else if(obsPara_tmp.size()%3==0) {  // var, var_low, var_high
-       var_low_ = (double) atof(obsPara_tmp.at(1).c_str());
-       var_hi_ = (double) atof(obsPara_tmp.at(2).c_str());
-
-       for (int i = 0; i < (int) obsPara_tmp.size(); i=i+3) {
-         obsPara_name.push_back(obsPara_tmp.at(i).c_str());
-	 var_low_vec.push_back((double) atof(obsPara_tmp.at(i + 1).c_str()));
-	 var_hi_vec.push_back((double) atof(obsPara_tmp.at(i + 2).c_str()));
-       }   
-
-    } else {
-      cout << "Check observables limits!" <<endl;
-      return;
-    }
-    
-    // check NPlist to see if systematics should be done
-    bool doSys=true;
-    try {
-      string NP_list = job_dic.at("NPlist") ;
-    } catch (const out_of_range& oor) {
-      doSys=false;
-    }
-    
-    for (auto& sample : all_dic.at("samples")) {
-        vector<string> tokens;
-        Helper::tokenizeString(sample.second, ',', tokens);
-        if(tokens.size() > 3){
-            // 0: input_path, 1: shape_sys_path, 2: norm_sys_path, 3: name, 4: samples config (eg ggH_config.ini)
-            if (tokens.at(0).find("analyticalParam")!=string::npos && (sample.first=="ggH" || sample.first=="VBFH")) {
-                auto* newsample = new CBGauss(tokens.at(3).c_str(), sample.first.c_str(), 
-		        tokens.at(0).c_str(), 
-                        tokens.at(1).c_str(), 
-                        tokens.at(2).c_str(), 
-                        file_path_.c_str(), doSys);
-                AddKeysSample(*newsample, file_path_+"/"+tokens.at(4));//doesn't really add keys: just needed for norm systematics
-
-                allSamples[sample.first] = newsample;
-             }
-            else {
-                 auto* newsample = new SampleHist(tokens.at(3).c_str(), sample.first.c_str(), 
-                        tokens.at(0).c_str(), 
-                        tokens.at(1).c_str(), 
-                        tokens.at(2).c_str(), 
-                        file_path_.c_str());
-                  if (tokens.size() > 4){
-                     newsample->setMCCThreshold(atof(tokens.at(4).c_str()));
-                     }
-                 allSamples[sample.first] = newsample;
+    RooArgSet ch_obs_minitree; // observables in mini-tree
+    RooArgSet ch_obs_ws;       // observables in workspace
+    string obs_str = findCategoryConfig("observables", category_name);
+    bool use_adaptive_binning = false;
+    getObservables(obs_str, ch_obs_ws, ch_obs_minitree, use_adaptive_binning);
+    category->setObservables(ch_obs_ws);
+    cout << ch_obs_ws.getSize() << " observable in " << category_name << endl;
+    obs_.add(ch_obs_minitree,true); // add observable in this channel to overall obs set.
+    obs_ws_.add(ch_obs_ws,true); // add observable in this channel to overall obs set.
+    //
+    // Add Samples in listed in mcsets
+    // Samples are created on-the-fly
+    //
+    for(auto& mcset_name : mcsets_names){
+        string sampleargs = findCategoryConfig(category_name, mcset_name);
+        SampleBase* sample = createSample(mcset_name, sampleargs);
+        if(sample) {
+            category->addSample(sample, sysMan);
+            if(use_adaptive_binning){
+                sample->useAdaptiveBinning();
             }
-        } 
-        else {
-            /* SampleKeys
-             * 0: config.ini, 1: name
-             * */
-            auto* newsample = new ParametrizedSample(tokens.at(1).c_str(), sample.first.c_str()); 
-            AddKeysSample(*newsample, tokens.at(0));
-            allSamples[sample.first] = newsample;
+        } else {
+            log_err("Failed to add mcset %s! IGNORE THIS SAMPLE!",mcset_name.c_str());
             continue;
         }
-
-        if (all_norm_dic_.size() > 0) {
-            try {
-                allSamples[sample.first]->setNormalizationMap(all_norm_dic_.at(sample.first));
-            } catch (const out_of_range&) {
-                cout << sample.first << " does not included in normalization table." << endl;
-            }
-        }
-    }
-    cout << "Added " << all_dic.at("samples").size() << " Samples" << endl;
-
-    ///////////////////////////////////
-    //load systematics
-    ///////////////////////////////////
-    try {
-        string NP_list = job_dic.at("NPlist") ;
-        sysMan = new SystematicsManager(Form("%s/%s", file_path_.c_str(), NP_list.c_str()));
-    } catch (const out_of_range& oor) {
-        sysMan = new SystematicsManager();
-        cerr << "NPlist is not defined, meaning no systematics used" << endl;
-    }
-    ///////////////////////////////////
-    // load the data
-    ///////////////////////////////////
-    try {
-        string input_data = job_dic.at("data"); 
-        data_chain = Helper::loader(input_data.c_str(), "tree_incl_all"); 
-        cout << "you are adding DATA!!" << endl;
-    } catch (const out_of_range& oor) {
-        cout << "I am blind!!" << endl;
     }
 
-    ///////////////////////////////////
-    //add categories
-    ///////////////////////////////////
-    istringstream iss_cat( job_dic["categories"] );
-    string category_name;
-    RooCategory channelCat("channelCat", "channelCat");
-    map<string, RooAbsPdf*> pdfMap;
-    map<string, RooDataSet*> dataMap;
-    int catIndex = 0;
-    char delim = ',';
+    cout <<"End add Samples: "<< category_name << endl;
 
-    vector<RooRealVar *> observables_main;
-    vector<RooRealVar *> observables_in_cat;
-    vector<string> parName_cat, parName_cat_tokenized;
-   
-    for (int i = 0; i < (int)obsPara_name.size(); ++i) {
-        cout << "The range of observable "+obsPara_name[i]+": " << var_low_vec[i] << " " << var_hi_vec[i] << endl;
-        RooRealVar *var = nullptr;
-        observables_main.push_back(var); 
-        observables_main[i] = new RooRealVar(obsPara_name[i].c_str(), obsPara_name[i].c_str(), var_low_vec[i], var_hi_vec[i]);
+    string catName(Form("%sCat",category_name.c_str()));
+    channelCat.defineType(catName.c_str(), catIndex++);
+    //////////////////////////////////////////////////////////////
+    // Category will sum individual sample's pdf and add constraint terms
+    //////////////////////////////////////////////////////////////
+    RooAbsPdf* final_pdf = category->getPDF();
+    string final_pdf_name(final_pdf->GetName());
+    // final_pdf->getVal(); // To increast the fitting speed??
+    std::cout<<"final_pdf @: "<<final_pdf<<std::endl;
+    final_pdf->Print();
 
-        vector<string> var_name_tmp;
-        Helper::tokenizeString(obsPara_name[i], '_', var_name_tmp);
-        obsPara_name_tokenized.push_back(var_name_tmp.at(0));
-       }
-   
-    /*
-     * hard coded the branch name! also in SampleKeys
-     */
-    RooRealVar event_type("event_type", "event_type", -10, 10);
-    RooRealVar prod_type("prod_type", "prod_type", -10, 10);
-    RooRealVar met_et("met_et", "MET", 0, 500);
-    RooRealVar n_jets("n_jets", "n_jets", 0, 50);
-    RooRealVar dijet_invmass("dijet_invmass", "dijet_invmass", -1200, 10000);
+    std::cout<<"now to import it.."<<std::endl;
 
+    std::cout<<"here is the workspace before import:"<<std::endl;
+    workspace->Print();
 
-    while( getline( iss_cat, category_name, delim )) 
+    std::cout<<"\n ok now I'm going to import my new pdf"<<std::endl;
+    workspace ->import(*final_pdf, RooFit::RecycleConflictNodes());
+
+    //////////////////////////////////////////////////////////////
+    // Add nuisance parameters and global observables for MC statistic
+    //////////////////////////////////////////////////////////////
+    TIter next_global(category->getGlobal().createIterator());
+    TIter next_nuis(category->getNuisance().createIterator());
+    RooAbsReal* global;
+    RooAbsReal* nuisance;
+    while ((
+                global = (RooAbsReal*) next_global(),
+                nuisance = (RooAbsReal*) next_nuis()
+           ))
     {
-        boost::algorithm::trim(category_name);
-        cout << "===========================" << endl;
-        cout <<"On category: "<< category_name << endl;
-
-        string mcsets = findCategoryConfig(category_name, "mcsets");
-        if(mcsets == "") continue;
-        
-        vector<string> mcsets_names;
-        Helper::tokenizeString( mcsets, ',', mcsets_names) ;
-        Category* category = new Category(category_name);
-        ///////////////////////////////////
-        // add observables
-        ///////////////////////////////////
-        obs.removeAll();
-        // 0: obs_name, 1: nbins_str, 2: low_str, 3: hi_str;
-        bool use_adaptive_binning = false;
-        vector<RooRealVar*> observables;
-
-        // check if use different observables for each cat
-        string check_obs="";
-        try{
-            check_obs = all_dic.at(category_name).at("observable");
-        }catch(const out_of_range& orr){
-            cout << "Using observables set in [main]" <<endl;
-        }
-        //using observables set in [main]
-        if(check_obs.empty()){
-
-            for(int i=0; i<(int)observables_main.size(); ++i){
-                RooRealVar *var = nullptr;
-                observables.push_back(var); 
-                observables[i] = new RooRealVar(obsPara_name_tokenized[i].c_str(), obsPara_name_tokenized[i].c_str(), var_low_vec[i], var_hi_vec[i]);
-                if (obsPara_bins.size() > 0){
-                    observables[i]->setBins(obsPara_bins[i]);	
-                }
-                else{
-                    // adaptive binning, only set range
-                    // The actual binning will be choosen for different input histograms
-                    use_adaptive_binning = true;
-                }
-                obs.add(*observables[i]); 
-            } 
-        }
-        //using observables set for each cat
-        else{
-            vector<string> obsPara_name_cat, obsPara_cat;
-            Helper::tokenizeString(check_obs, ',', obsPara_cat);
-            vector<int> obsPara_bins_cat;
-            vector<double> var_low_vec_cat, var_hi_vec_cat;
-
-            if(obsPara_cat.size()%4==0) {      // var, bins, var_low, var_high
-
-                for(int i = 0; i < (int) obsPara_cat.size(); i=i+4) {
-                    obsPara_name_cat.push_back(obsPara_cat.at(i).c_str());
-                    obsPara_bins_cat.push_back((int) atof(obsPara_cat.at(i + 1).c_str()));
-                    var_low_vec_cat.push_back((double) atof(obsPara_cat.at(i + 2).c_str()));
-                    var_hi_vec_cat.push_back((double) atof(obsPara_cat.at(i + 3).c_str()));
-                }
-
-            }else if(obsPara_cat.size()%3==0) {// var, var_low, var_high
-
-                for(int i = 0; i < (int) obsPara_cat.size(); i=i+3) {
-                    obsPara_name_cat.push_back(obsPara_cat.at(i).c_str());
-                    var_low_vec_cat.push_back((double) atof(obsPara_cat.at(i + 1).c_str()));
-                    var_hi_vec_cat.push_back((double) atof(obsPara_cat.at(i + 2).c_str()));
-                }   
-
-            }else{
-                cout << "Check observables limits!" <<endl;
-                return;
-            }
-
-            for(int i=0; i<(int)obsPara_name_cat.size(); ++i){
-                vector<string> tmp;
-                Helper::tokenizeString(obsPara_name_cat[i], '_', tmp);
-
-                RooRealVar *var = nullptr;
-                observables.push_back(var); 
-                observables[i] = new RooRealVar(tmp.at(0).c_str(), tmp.at(0).c_str(), var_low_vec_cat[i], var_hi_vec_cat[i]);
-                // store used variables in categories
-                if(find(parName_cat.begin(), parName_cat.end(), obsPara_name_cat[i])==parName_cat.end()){
-                    parName_cat.push_back(obsPara_name_cat[i]); 
-                    parName_cat_tokenized.push_back(tmp.at(0));
-                    observables_in_cat.push_back(var);
-                    observables_in_cat.back() = new RooRealVar(tmp.at(0).c_str(), tmp.at(0).c_str(), var_low_vec_cat[i], var_hi_vec_cat[i]);
-                }
-                if(obsPara_bins_cat.size() > 0){
-                    observables[i]->setBins(obsPara_bins_cat[i]);	
-                }
-                else{
-                    // adaptive binning, only set range
-                    // The actual binning will be choosen for different input histograms
-                    use_adaptive_binning = true;
-                }
-                obs.add(*observables[i]); 
-            }
-        }
-
-        category->setObservables(obs);
-        /*
-         * Add Samples in listed in mcsets
-         * Note that sysMan(systematic manager) decides if need systematics 
-         * and if yes, add which systematics
-         */
-        for(auto& mcset_name : mcsets_names){
-            SampleBase* sample = getSample(mcset_name);
-            if(sample) {
-                category->addSample(sample, sysMan);
-                if(use_adaptive_binning){ 
-                    sample->useAdaptiveBinning();
-                }
-            }
-        }
-        cout <<"End add Samples: "<< category_name << endl;
-
-        string catName(Form("%sCat",category_name.c_str()));
-        channelCat.defineType(catName.c_str(), catIndex++);
-        //////////////////////////////////////////////////////////////
-        // Category will sum individual sample's pdf and add constraint terms
-        //////////////////////////////////////////////////////////////
-        RooAbsPdf* final_pdf = category->getPDF();
-        final_pdf->Print();
-        string final_pdf_name(final_pdf->GetName()); 
-        // final_pdf->getVal(); // To increast the fitting speed??
-
-
-        for(int i=0; i<(int)observables.size(); ++i){
-            workspace ->import(*observables[i], RooFit::RecycleConflictNodes());
-        }
-        workspace ->import(*final_pdf, 
-                RooFit::RecycleConflictNodes(),
-                RooFit::RenameVariable("m4l_constrained", "m4l")
-                );
-
-
-        //////////////////////////////////////////////////////////////
-        // Add nuisance parameters and global observables for MC statistic
-        //////////////////////////////////////////////////////////////
-        TIter next_global(category->getGlobal().createIterator());
-        TIter next_nuis(category->getNuisance().createIterator());
-        RooAbsReal* global; 
-        RooAbsReal* nuisance;
-        while ((
-                    global = (RooAbsReal*) next_global(),
-                    nuisance = (RooAbsReal*) next_nuis()
-               )) 
-        {
-            nuisanceSet.add(*nuisance);
-            globalobsSet.add(*global);
-        }
-
-        // delete category;
-        pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());
-
-
-        //  Add Data //
-
-        if(data_chain){
-            string cut = "";
-            try{
-                cut = all_dic.at(category_name).at("cut");
-            }catch(const out_of_range& oor){
-                log_err("cannot find |cut| in %s, make up one!", category_name.c_str());
-                cut = GetTCut(category_name);
-            }
-            cout << "Cut on data: " << cut << endl;
-            string obs_data_ch_name(Form("data_%s",category_name.c_str()));
-            RooArgSet var_set;
-            for(int i=0; i<(int)observables.size(); ++i){
-                var_set.add(*observables[i]);
-            }
-            var_set.add(event_type);
-            var_set.add(prod_type); 
-            var_set.add(met_et);
-            var_set.add(n_jets);
-            var_set.add(dijet_invmass);
-            RooDataSet* data_ch = new RooDataSet(obs_data_ch_name.c_str(),
-                    "data set",
-                    var_set,
-                    RooFit::Import(*data_chain),
-                    RooFit::Cut(cut.c_str())
-                    );
-
-            // workspace->import(*data_ch, arg);
-            // dataMap[catName] = (RooDataSet*) workspace->data(obs_data_ch_name.c_str());
-            cout << "data: in "<< category_name<< " " << data_ch->sumEntries() << endl;
-            dataMap[catName] = data_ch;    
-        }
-
-        cout <<"End category: "<< category_name << endl;
+        nuisanceSet_.add(*nuisance);
+        globalobsSet_.add(*global);
     }
 
+    pdfMap[catName] = workspace->pdf(final_pdf_name.c_str());
+
+    ////////////////////////////////////////////
+    //  Add Data (per channel)
+    ////////////////////////////////////////////
     if(data_chain){
-        RooArgSet var_set;
-        vector<RooCmdArg> arg;
-        // add observables
-        string check_obs="";
-        try{
-            check_obs = all_dic.at(category_name).at("observable");
-        }catch(const out_of_range& orr){
-            cout << "Add observables to workspace set in [main]" <<endl;
-        }
-
-        // observables set in [main]
-        for(int i=0; i<(int)observables_main.size(); ++i){
-            var_set.add(*observables_main[i]);
-            arg.push_back( RooFit::RenameVariable(obsPara_name[i].c_str(), obsPara_name_tokenized[i].c_str()) );
-        }
-        // observables set in categories
-        if(!check_obs.empty()){
-            for(int i=0; i<(int)observables_in_cat.size(); ++i){
-                // check if var already set
-                if(find(obsPara_name.begin(), obsPara_name.end(), parName_cat[i]) == obsPara_name.end()){
-                    var_set.add(*observables_in_cat[i]);
-                    arg.push_back( RooFit::RenameVariable(parName_cat[i].c_str(), parName_cat_tokenized[i].c_str()) );
-                } 
-
-            }
-        }
-
-
-        var_set.add(channelCat);
-        RooDataSet* obsData = new RooDataSet(
-                "obsData",
-                "observed data",
-                var_set,
-                RooFit::Index(channelCat),
-                RooFit::Import(dataMap)
+      std::cout<<"adding data in category "<<category_name<<std::endl;
+        string cut = findCategoryConfig("cut", category_name);
+        cout << "Cut on data: |" << cut << "|" << endl;
+        cout << "Observables in minitree: " << ch_obs_minitree.getSize() << endl;
+        string obs_data_ch_name(Form("data_%s",category_name.c_str()));
+        addCutVariables(ch_obs_minitree, cut);
+        RooCmdArg cut_arg = cut==""?RooCmdArg::none():RooFit::Cut(cut.c_str());
+        RooDataSet* data_ch = new RooDataSet(obs_data_ch_name.c_str(),
+                "data set",
+                ch_obs_minitree,
+                RooFit::Import(*data_chain),
+                cut_arg
                 );
-        if(arg.size()==1)
-            workspace->import(*obsData, arg[0]);
-        else if(arg.size()==2)
-            workspace->import(*obsData, arg[0], arg[1]);
-        else if(arg.size()==3)
-            workspace->import(*obsData, arg[0], arg[1], arg[2]);
-        else if(arg.size()==4)
-            workspace->import(*obsData, arg[0], arg[1], arg[2], arg[3]);
-        else if(arg.size()==5)
-            workspace->import(*obsData, arg[0], arg[1], arg[2], arg[3], arg[4]);
-        else 
-            log_err("Not implemented!");
-
+        cout << "data: in "<< category_name<< " " << data_ch->sumEntries() << endl;
+        dataMap[catName] = data_ch;
     }
 
-    /*   
-         if(data_chain){
-         RooArgSet var_set;
-         RooCmdArg arg1, arg2; // for 2D
-         for(int i=0; i<(int)observables_main.size(); ++i){
-         var_set.add(*observables_main[i]);
-         if(i==0)
-         arg1 = RooFit::RenameVariable(obsPara_name[i].c_str(), obsPara_name_tokenized[i].c_str());
-         else
-         arg2 = RooFit::RenameVariable(obsPara_name[i].c_str(), obsPara_name_tokenized[i].c_str());
-         }
-         var_set.add(channelCat);
-         RooDataSet* obsData = new RooDataSet(
-         "obsData",
-         "observed data",
-         var_set,
-         RooFit::Index(channelCat),
-         RooFit::Import(dataMap)
-         );
-// workspace->import(*obsData, RooFit::RecycleConflictNodes());
-if((int)observables_main.size()>1)
-workspace->import(*obsData, arg1, arg2);
-else
-workspace->import(*obsData, arg1);
+    cout <<"End category: "<< category_name << endl;
+    cout <<"Summary: "<< endl;
+    final_pdf->Print();
+    cout << "====================================" << endl;
+    delete category;
+    delete final_pdf;
+  }
 
+  ////////////////////////////////////////////
+  //  Add Data //
+  ////////////////////////////////////////////
+  if(data_chain){
+    std::cout<<"adding data in ALL categories"<<std::endl;
+
+    obs_.add(channelCat);
+    RooDataSet* obsData = new RooDataSet(
+        "obsData",
+        "observed data",
+        obs_,
+        RooFit::Index(channelCat),
+        RooFit::Import(dataMap)
+        );
+    TString orignames(""), newnames("");
+    for(auto items : rename_map_) {
+      if (orignames!="") orignames+=",";
+      if (newnames!="") newnames+=",";
+      orignames+=items.first;
+      newnames+=items.second;
+    }
+    workspace->import(*obsData, RooFit::RenameVariable(orignames.Data(),newnames.Data()));
+  }
+
+  auto* simPdf = new RooSimultaneous("simPdf", "simPdf", pdfMap, channelCat);
+  workspace ->import(*simPdf, RooFit::RecycleConflictNodes(), RooFit::Silence());
+
+  this->configWorkspace(workspace);
+
+
+  //////////////////////////////////////////////
+  // Add Asimov
+  // //////////////////////////////////////////
+
+  workspace->saveSnapshot("ParamsBeforeAsimovGeneration",workspace->allVars());
+
+  auto mc = (RooStats::ModelConfig*)workspace->obj("ModelConfig");
+
+  for (auto & opt : all_dic){
+    if (opt.first.find("asimov")==std::string::npos) continue;
+
+    TString asimovName=opt.first.c_str();
+    asimovName.ReplaceAll(" ","");
+    asimovName.ReplaceAll("asimov:","");
+
+    std::cout<<"going to make asimov dataset called: "<<asimovName<<std::endl;
+
+    for (auto & par : opt.second){
+      RooRealVar* var = workspace->var(par.first.c_str());
+      if (var) 
+        var->setVal( atof(par.second.c_str()) );
+      else {
+        log_err("Trying to build asimov but received an invalid parameter: %s",par.first.c_str());
+        exit (-1);
+      }
+    }
+
+    auto adata = RooStatsHelper::makeUnconditionalAsimov(workspace, mc , asimovName.Data());
+    if (!workspace->data(asimovName.Data())) workspace->import(*adata); // currently done inside makeUnconditionalAsimov() so we don't really have to do this
+  }
+
+  workspace->loadSnapshot("ParamsBeforeAsimovGeneration");
+
+
+  //////////////////////////////////////////
+  // Done
+  /////////////////////////////////////////
+
+
+  workspace ->writeToFile(ws_name_);
 }
-*/   
 
-
-auto* simPdf = new RooSimultaneous(simpdf_name.c_str(), simpdf_name.c_str(), pdfMap, channelCat);
-workspace ->import(*simPdf, RooFit::RecycleConflictNodes());
-
-
-
-this->configWorkspace(workspace);
-RooRealVar* mH = workspace->var("mH");
-if(mH) {
-    mH->setRange(var_low_, var_hi_);
-}
-//workspace->Print();
-std::cout<<"end of Combiner::readConfig"<<std::endl;
-workspace ->writeToFile(ws_name_);
-
-}
-
-
-SampleBase* Combiner::getSample(string& name)
+Coefficient* Combiner::getCoefficient(string& name)
 {
-    SampleBase* sample = NULL;
+    Coefficient* coef = NULL;
     try{
-        sample = allSamples.at(name);
+        coef = allCoefficients.at(name);
     }catch(const out_of_range& oor){
-        cerr << "ERROR (Combiner::getSample): Sample " << name << " not defined! " << endl;
+        cerr << "ERROR (Combiner::getCoefficient): Coefficient " << name << " not defined! " << endl;
     }
-    return sample;
+    return coef;
 }
 
-string Combiner::findCategoryConfig(string& cat_name, const char* name)
+string Combiner::findCategoryConfig(const string& sec_name, const string& key_name)
 {
-    string token;
-    try{
-        token = all_dic.at(cat_name).at(name);
-    }catch(const out_of_range& orr){ 
-        try{
-            token = all_dic.at(mainSectionName).at(name);
-        }catch(const out_of_range& orr){
-            cerr << "ERROR (Combiner::findCategoryConfig) : no |" << name << "| found in |" << cat_name << "|" << endl;
-            return "";
+    string token = "";
+    try {
+        token = all_dic.at(sec_name).at(key_name);
+    } catch (const out_of_range& orr) {
+        try {
+            token = all_dic.at("main").at(key_name);
+        } catch (const out_of_range& orr) {
+            // Loop over the section names and try to match sec_name
+            int ntimes = 0;
+            for (auto it : all_dic) {
+                if(it.first.find(sec_name) != string::npos){
+                    if(it.second.find(key_name) != it.second.end()) {
+                        token = it.second.at(key_name);
+                    }
+                    ntimes ++;
+                }
+            }
+            if(ntimes > 1){
+                log_err("%s are found more than twice!", sec_name.c_str());
+            }
         }
     }
     return token;
@@ -540,15 +343,13 @@ void Combiner::configWorkspace(RooWorkspace* ws)
     cout << "Configuring the workspace" << endl;
 
     ws->Print();
-    //////////////////// 
+    ////////////////////
     // define set
-    //////////////////// 
-    RooArgSet poiSet;
-    if(ws->var("mu_BSM")) poiSet.add(* ws->var("mu_BSM") );
-    else if(ws->var("mu")) poiSet.add(* ws->var("mu"));
-    else {
+    ////////////////////
+    RooArgSet* poiSet = (RooArgSet*)ws->allVars().selectByName("mu*,xs*,XS*,BR*");
+
+    if (poiSet->getSize()==0)
         log_err("I cannot find POI!");
-    }
 
     //////////////////////////////
     // define nusiance parameters and global observables
@@ -565,21 +366,20 @@ void Combiner::configWorkspace(RooWorkspace* ws)
             log_err("no global observable: %s in workspace", globalName.c_str());
             continue;
         }
-        nuisanceSet.add( *ws->var(nuisanceName.c_str()) );
-        globalobsSet.add( *ws->var(globalName.c_str()) );
+        nuisanceSet_.add( *ws->var(nuisanceName.c_str()) );
+        globalobsSet_.add( *ws->var(globalName.c_str()) );
     }
-    ws->defineSet("obs", obs);
-    ws->defineSet("nuisance", nuisanceSet);
-    ws->defineSet("globalobs", globalobsSet);
-    ws->defineSet("poi", poiSet);
+    ws->defineSet("obs", obs_ws_);
+    ws->defineSet("nuisance", nuisanceSet_);
+    ws->defineSet("globalobs", globalobsSet_);
+    ws->defineSet("poi", *poiSet);
 
-    //////////////////// 
-    // make model config 
-    //////////////////// 
-
+    ////////////////////
+    // make model config
+    ////////////////////
     RooStats::ModelConfig modelConfig("ModelConfig","H->4l example");
     modelConfig.SetWorkspace           ( *ws );
-    modelConfig.SetPdf(*ws->pdf(simpdf_name.c_str()));
+    modelConfig.SetPdf(*ws->pdf("simPdf"));
     modelConfig.SetParametersOfInterest( *ws->set("poi") );
     modelConfig.SetObservables         ( *ws->set("obs") );
     modelConfig.SetNuisanceParameters  ( *ws->set("nuisance") );
@@ -587,97 +387,120 @@ void Combiner::configWorkspace(RooWorkspace* ws)
     ws->import(modelConfig);
     ws->saveSnapshot("nominalGlobs", *ws->set("globalobs"));
     ws->saveSnapshot("nominalNuis", *ws->set("nuisance"));
+
+    // TODO add asimovData and performan S+B and B-only Fit
     cout << "end of configuring workspace" << endl;
     return;
 }
 
-void Combiner::AddKeysSample(SampleBase& samplebase, const string& config_file) 
-{
-    auto parametrizedSample = dynamic_cast<ParametrizedSample*>(&samplebase);
-    auto cbGauss = dynamic_cast<CBGauss*>(&samplebase);
-
-    map<string, map<string, string> > all_keys_info;
-    Helper::readConfig(config_file.c_str(), '=', all_keys_info);
-    Helper::printDic<string>(all_keys_info);
-
-    string& all_samples =  all_keys_info.at("Init").at("mcsets");
-    string& minitree_dir = all_keys_info.at("Init").at("minitree_path");
-    vector<string>* sample_list = new vector<string>();
-    Helper::tokenizeString(all_samples, ',', *sample_list);
-    if(sample_list->size() < 2) {
-        cout << "Only one sample is provided in " << config_file << endl;
-        cout << "I don' know parametrization" << endl;
-        delete sample_list;
-        exit(1);
-    }
-    for (const auto& sample : *sample_list) {
-        const auto& keys_dict = all_keys_info.at(sample);
-
-        //What to do if CBGauss:
-        if (cbGauss){
-            cbGauss->AddMassPoint(atof(keys_dict.at("mH").c_str()), file_path_+"/"+keys_dict.at("norm"), file_path_+"/"+keys_dict.at("shape_mean"), file_path_+"/"+keys_dict.at("shape_sigma"));
-        }
-
-        //What to do if ParametrizedSample:
-        if (parametrizedSample){
-            double mH = (double)atof(keys_dict.at("mH").c_str());
-            string minitree(Form("%s/%s",minitree_dir.c_str(), keys_dict.at("minitree").c_str()));
-            vector<string> yields_str;
-            Helper::tokenizeString(keys_dict.at("yield"), ',', yields_str);
-            auto* keys_pdf = new SampleKeys(Form("%s_%.f",samplebase.get_pdf_name().c_str(), mH), 
-                    Form("%s_%.f", samplebase.get_nick_name().c_str(), mH), 
-                    mH, var_low_, var_hi_,
-                    minitree.c_str(), 
-                    keys_dict.at("shape").c_str(),
-                    keys_dict.at("norm").c_str(),
-                    file_path_.c_str()
-                    );
-            // set expected yields
-            if(all_categories_.size() > yields_str.size()) {
-                log_err("not providing enough yields! %s, cat(%d), config(%d)", config_file.c_str(),
-                        (int)all_categories_.size(), (int)yields_str.size());
-            } else {
-                int ntotal =  (int)all_categories_.size();
-                for(int i = 0; i < ntotal; i ++) {
-                    keys_pdf->SetExpectedEvents(all_categories_.at(i), (double)atof(yields_str.at(i).c_str()));
-                }
-            }
-            parametrizedSample->AddSample(keys_pdf);
-        }
-    }
-    delete sample_list;
-}
-
-string Combiner::GetTCut(const string& ch_name)
-{
-    if(ch_name.find("4mu") != string::npos){
-        return "event_type == 0 && n_jets < 2";
-    } else if (ch_name.find("4e") != string::npos) {
-        return "event_type == 1 && n_jets < 2";
-    } else if (ch_name.find("2mu2e") != string::npos) {
-        if(var_low_ < 140) return "event_type == 2 && n_jets < 2";
-        else return "(event_type == 2 || event_type == 3)  && n_jets < 2";
-    } else if (ch_name.find("2e2mu") != string::npos) {
-        if(var_low_ < 140) return "event_type == 3 && n_jets < 2";
-        else return "(event_type == 2 || event_type == 3) && n_jets < 2";
-    } else if (ch_name.find("hi_met") != string::npos) {
-        return "met_et > 100";
-    } else if (ch_name.find("low_met") != string::npos) {
-        return "met_et <= 100";
-    } else if (ch_name.find("VBF") != string::npos) {
-        return "n_jets > 1 && dijet_invmass>130";
-    } else{
-        log_err("I don't know your category %s", ch_name.c_str());
-    }
-    return "1==1";
-}
-
-void Combiner::SetLumiFactor(double lumi_factor_) {
-    cout << "Set Luminosity factor: " << lumi_factor_ << endl;
-    this->lumi_factor_ = lumi_factor_;
-}
 
 void Combiner::combine(){
     readConfig(config_name_.c_str());
     std::cout<<"end of Combiner::combine"<<std::endl;
+}
+
+void Combiner::getObservables(
+        const string& obs_str,
+        RooArgSet& obs_ws, RooArgSet& obs_minitree,
+        bool& adaptive)
+{
+    // @format
+    // obs1_name_in_minitree:obs1_name_in_ws nbins low hi; obs2_name_in_minitree:obs2_name_in_ws nbins low hi
+
+    if (obs_str=="COUNT"){//keyword - the only exception to the above
+       std::cout<<"detected COUNT: only doing counting in this category, no observables"<<std::endl;
+       return;
+    }
+    vector<string> obs_list;
+    Helper::tokenizeString(obs_str, ';', obs_list);
+    if (obs_list.size() < 1) {
+        log_err("observable input cannot be recognized: %s", obs_str.c_str());
+        return ;
+    }
+    for (auto obs_input : obs_list){
+        vector<string> obs_parameters;
+        Helper::tokenizeString(obs_input, ',', obs_parameters);
+        const string& obs_names = obs_parameters.at(0);
+        size_t pos_semi_comma = obs_names.find(':');
+        string minitree_name = "";
+        string ws_name = "";
+        if (pos_semi_comma == string::npos) {
+            minitree_name = ws_name = obs_names;
+        } else {
+            minitree_name = obs_names.substr(0, pos_semi_comma);
+            ws_name = obs_names.substr(pos_semi_comma+1, obs_names.size());
+        }
+        cout <<" MINITREE name: " << minitree_name << endl;
+        cout <<" WSNAME: " << ws_name << endl;
+        if(rename_map_.find(minitree_name) == rename_map_.end()) {
+            rename_map_[minitree_name] = ws_name;
+        }
+        int nbins = 100;
+        double low_val=9999, hi_val=9999;
+        if(obs_parameters.size() == 3){
+            low_val = (double) atof(obs_parameters.at(1).c_str());
+            hi_val = (double) atof(obs_parameters.at(2).c_str());
+            adaptive = true;
+        } else if(obs_parameters.size() == 4) {
+            nbins = atoi(obs_parameters.at(1).c_str());
+            low_val = (double) atof(obs_parameters.at(2).c_str());
+            hi_val = (double) atof(obs_parameters.at(3).c_str());
+        } else {
+            log_err("I don't understand: %s", obs_input.c_str());
+            continue;
+        }
+        cout<<"Low: "<< low_val << ", High: " << hi_val << " bins:" << nbins << endl;
+        float value = (low_val+hi_val)/2.;
+        auto var_ws = new RooRealVar( ws_name.c_str(), ws_name.c_str(),
+                value, low_val, hi_val
+                );
+        var_ws->Print();
+        if(!adaptive) var_ws->setBins(nbins);
+        obs_ws.add(*var_ws);
+        auto var_minitree = new RooRealVar( minitree_name.c_str(), minitree_name.c_str(),
+                    value, low_val, hi_val
+                );
+        if(!adaptive) var_minitree->setBins(nbins);
+        obs_minitree.add(*var_minitree);
+        var_minitree->Print();
+    }
+}
+
+SampleBase* Combiner::createSample(const string& name, const string& sample_input)
+{
+    // {sampletype} : {{sampleargs}}
+    strvec sampleargs;
+    Helper::tokenizeString(sample_input, ':', sampleargs);
+    if (sampleargs.size()!=2){
+      log_err("Trying to create sample but requires exactly two colon-seperated fields \"sampletype : arg0, arg1, arg2 ...\"");
+      log_err("I received \"%s\"", sample_input.c_str());
+      return NULL;
+    }
+    std::string sampletype = sampleargs[0];
+    std::string copyargs = sampleargs[1];
+    Helper::tokenizeString(copyargs, ',', sampleargs);
+
+    auto newsample = SampleFactory::CreateSample(sampletype,sampleargs);
+
+    if (!newsample){
+        log_err("Failed to add sample %s!,aborting Combiner!", name.c_str());
+        return NULL;
+    }
+
+    if(allCoefficients.find(name) != allCoefficients.end()) {
+        newsample->addCoefficient(allCoefficients[name]);
+    } else {
+        log_err("Tried to add coefficient for sample %s but I couldn't find it!",name.c_str());
+        return NULL;
+    }
+    return newsample;
+}
+void Combiner::addCutVariables(RooArgSet& obs, const string& cut)
+{
+    if (cut == "") return;
+    strvec name_list;
+    Helper::getListOfNames(cut, name_list);
+    for(auto name : name_list){
+        obs.add(*(new RooRealVar(name.c_str(), name.c_str(), -1E6, 1E6)));
+    }
 }

@@ -14,15 +14,14 @@ using namespace std;
 class ParametrizedSample : public SampleBase
 {
 public:
-    ParametrizedSample(const char* name, const char* nickname, const char* para_name = "mH", float low = 118., float hi = 119.);
+    ParametrizedSample(const char* name, const char* para_name = "mH", float low = 118., float hi = 119.);
     virtual ~ParametrizedSample();
 
     // from sample base
     virtual bool setChannel(const RooArgSet& observable, const char* channelName, bool with_sys);
     virtual bool addShapeSys(const TString& npName);
-    virtual bool addNormSys(const TString& npName);
     virtual RooAbsPdf* getPDF();
-    virtual RooAbsReal*  getCoeff();
+    //virtual RooAbsReal*  getCoeff();
     // virtual RooAbsPdf* get_mc_constraint();
 
     bool AddSample(SampleBase* signal);

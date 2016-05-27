@@ -15,6 +15,7 @@ SysText::SysText(const char* text_path):
     file_name_(text_path)
 {
     sys_all_.clear();
+    sys_global_.clear();
     Helper::readConfig(text_path, '=', sys_all_);
     Helper::printDic<string>(sys_all_);
     ch_name_ = "";
@@ -55,8 +56,7 @@ bool SysText::SetChannel(const char* ch_name){
                 vector<float>  sys;
                 sys.push_back(low_value);
                 sys.push_back(high_value);
-                TString _name(npName.first);
-                sys_channel_[_name] = sys;
+                sys_channel_[TString(npName.first)] = sys;
                 has_channel = true;
             }
         }
@@ -65,12 +65,18 @@ bool SysText::SetChannel(const char* ch_name){
     return true;
 }
 
-bool SysText::AddSys(const TString& npName){
+bool SysText::AddSys(const TString& npName)
+{
     vector<float>* norm_varies;
     try{
         norm_varies =&( this->sys_channel_.at(npName));
     } catch (const out_of_range& oor) {
-        return false;
+        // try global systematics
+        try{
+            norm_varies = &( this->sys_global_.at(npName));
+        } catch (const out_of_range& oor) {
+            return false;
+        }
     }
     addSys(npName, norm_varies ->at(0), norm_varies->at(1));
     return true;
@@ -108,4 +114,12 @@ bool SysText::ReadConfig(const char* text_file){
     sys_all_.clear();
     Helper::readConfig(text_file, '=', sys_all_);
     return true;
+}
+
+void SysText::AddGlobalSys(const char* npName, float low, float up)
+{
+    vector<float> sys;
+    sys.push_back(low);
+    sys.push_back(up);
+    sys_global_[TString(npName)] = sys;
 }

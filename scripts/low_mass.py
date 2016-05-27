@@ -26,10 +26,10 @@ samples = sig_samples + bkg_samples
 samples_para = samples
 
 samples_lowmass_sig125 = {
-    "ggH":common.minitree_dir+"mc15_13TeV.341505.PowhegPythia8EvtGen_CT10_AZNLOCTEQ6L1_ggH125_ZZ4lep_noTau.root",
-    "VBFH":common.minitree_dir+"mc15_13TeV.341518.PowhegPythia8EvtGen_CT10_AZNLOCTEQ6L1_VBFH125_ZZ4lep_noTau.root",
-    "WH":common.minitree_dir+"mc15_13TeV.341964.Pythia8EvtGen_A14NNPDF23LO_WH125_ZZ4l.root",
-    "ZH":common.minitree_dir+"mc15_13TeV.341947.Pythia8EvtGen_A14NNPDF23LO_ZH125_ZZ4l.root",
+    "ggH":common.minitree_dir+"mc15_13TeV.341505.PowhegPythia8EvtGen_CT10_AZNLOCTEQ6L1_ggH125_ZZ4lep_noTau.root", 
+    "VBFH":common.minitree_dir+"mc15_13TeV.341518.PowhegPythia8EvtGen_CT10_AZNLOCTEQ6L1_VBFH125_ZZ4lep_noTau.root", 
+    "WH":common.minitree_dir+"mc15_13TeV.341964.Pythia8EvtGen_A14NNPDF23LO_WH125_ZZ4l.root", 
+    "ZH":common.minitree_dir+"mc15_13TeV.341947.Pythia8EvtGen_A14NNPDF23LO_ZH125_ZZ4l.root", 
     "ttH":common.minitree_dir+"mc15_13TeV.342561.aMcAtNloHerwigppEvtGen_UEEE5_CTEQ6L1_CT10ME_ttH125_4l.root",
 }
 

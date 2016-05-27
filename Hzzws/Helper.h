@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <stdio.h>
 #include <RooRealVar.h>
 #include <RooGaussian.h>
 
@@ -19,6 +20,10 @@
 #define log_info(M, ...) fprintf(stdout, "[INFO] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #endif
 
+typedef std::vector<std::string> strvec;
+typedef std::vector<TString> tstrvec;
+typedef std::map<std::string, std::string> strmap;
+
 using namespace std;
 namespace Helper{
 
@@ -30,12 +35,14 @@ namespace Helper{
             char delim,  // delimeter
             map<string, map<string, string> >& all_dic // reference to a dictionary
             );
-    void readNormTable(const char* file_name, 
-            map<string, map<string, double> >& all_norm_dic, 
+    void readNormTable(const char* file_name,
+            map<string, map<string, double> >& all_norm_dic,
             double lumi = 1.0);
     void readScaleFile(const char* file_name, map<string, double>& all_dic);
     void tokenizeString(const string& str, char delim, vector<string>& tokens);
     void tokenizeString(const char* str, char delim, vector<string>& tokens);
+    void tokenizeString(const char* str, char delim, vector<TString>& tokens);
+    tstrvec fileList(const char* pattern, std::map<float, TString>* m=NULL);
     template<typename T>
     void printDic( const map<string, map<string, T> >& all_dic )
     {
@@ -48,6 +55,7 @@ namespace Helper{
     }
     void readAcceptancePoly(std::vector<double>& params, const char* prod, const char* chan, const char* sys="Nominal");
 
+
     // to have a uniformed name convention for nuisance parameters and global name
     RooRealVar* createNuisanceVar(const char* npName);
     RooRealVar* createGlobalVar(const char* npName);
@@ -58,5 +66,6 @@ namespace Helper{
     void printStopwatch(TStopwatch& timer);
     const std::string& getInputPath(std::string i=std::string("."));
 
+    void getListOfNames(const string& cut, strvec& name_list);
 }
 #endif

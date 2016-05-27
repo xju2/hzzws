@@ -1,6 +1,7 @@
 #include "TSystem.h"
 #include "TFile.h"
 #include "TGraphErrors.h"
+#include "TH1.h"
 #include "TMultiGraph.h"
 #include "TAxis.h"
 #include "TTree.h"

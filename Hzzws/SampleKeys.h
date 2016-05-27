@@ -2,6 +2,7 @@
  * It's only used for SM Higgs
  */
 #ifndef __HZZWS_SAMPLEKEYS_H__
+#define __HZZWS_SAMPLEKEYS_H__
 
 #include <TCut.h>
 #include <RooWorkspace.h>
@@ -18,12 +19,10 @@
 using namespace std;
 class SampleKeys : public SampleBase {
 public:
-    explicit SampleKeys(const char* name, const char* nickname, 
+    explicit SampleKeys(const char* name,
             double mH, double mH_low, double mH_hi,
             const char* minitree_dir, //minitree
-            const char* shape_sys,
-            const char* norm_sys,
-            const char* _path);
+            const char* shape_sys);
     virtual ~SampleKeys();
     bool SetMHRange(double low, double hi) { 
         if(low > mass_ || hi < mass_) return false;

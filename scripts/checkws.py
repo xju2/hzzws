@@ -126,8 +126,8 @@ class wschecker:
             obj.setVal(0.)
             obj = iter_nuis()
         res = [0]*len(res_list[0])
-        for nuis in res_list:
-            for i in nuis::
+        #for nuis in res_list:
+        #    for i in nuis::
 
         return res_list
         
@@ -161,6 +161,6 @@ if __name__ == "__main__":
         poi_name = "mu"
 
     check = wschecker(file_name, poi_name)
-    #check.get_yields()
-    check.get_yields_monoH()
+    check.get_yields()
+    #check.get_yields_monoH()
     #check.plot_categories()

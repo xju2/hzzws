@@ -8,13 +8,14 @@
 #include <TH1.h>
 #include <TTree.h>
 #include <TChain.h>
+#include "TVectorD.h"
 
 using namespace std;
 
 class Smoother{
    public:
-        Smoother(const string& outname, float rho);
-        Smoother(float rho);
+        Smoother(const string& outname, TVectorD rho);
+        Smoother(TVectorD rho);
         Smoother();
         ~Smoother();
 
@@ -23,10 +24,9 @@ class Smoother{
                 const string& treename, 
                 const RooArgSet& treeobs, 
                 const string& cuts) const ;
-        
-        void SetRho(float rho){ m_rho_ = rho; }
+
    private:
-        float m_rho_;
+        TVectorD m_rho_;
         TFile* outfile;
 };
 

@@ -1,0 +1,6 @@
+This tag was used for the workspaces without systematics
+The input are:
+Low mass: /afs/cern.ch/atlas/groups/HSG2/H4l/run2/2015/Workspaces/LowMass/Prod_v01/20151026_v1/input_mH_v02/
+Hist-based High mass: /afs/cern.ch/atlas/groups/HSG2/H4l/run2/2015/Workspaces/HighMass/Prod_v01/rho_1.0/input/
+Analytical High mass: /afs/cern.ch/atlas/groups/HSG2/H4l/run2/2015/Workspaces/Analytical/Prod_v01/input/
+or the workspace is at: /afs/cern.ch/user/g/gcree/public/share/forWorkspaces/

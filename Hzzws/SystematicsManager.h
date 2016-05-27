@@ -7,6 +7,7 @@
 
 #include <vector>
 #include "SampleBase.h"
+#include "Coefficient.h"
 #include <RooWorkspace.h>
 #include <TString.h>
 

@@ -22,30 +22,29 @@
 #include "Hzzws/Helper.h"
 #include "Hzzws/BinningUtil.h"
 
-SampleHist::SampleHist(const char* _name, 
-        const char* _nickname,
-        const char* _input,  
-        const char* _shape_sys, 
-        const char* _norm_sys,
-        const char* _path
-        ): SampleBase(_name, _nickname) 
+SampleHist::SampleHist(const char* _name,
+        const char* _input,
+        const char* _shape_sys) : SampleBase(_name)
 {
-    TString hist_file_name(Form("%s/%s", _path, _input));
+    cout <<"creating SampleHist"<<endl;
+    cout <<"name: " << _name << endl;
+    cout <<"input: " << _input << endl;
+    cout <<"Shape: " << _shape_sys << endl;
+    TString hist_file_name(Form("%s/%s", Helper::getInputPath().c_str(), _input));
     hist_files_ = TFile::Open(hist_file_name.Data(), "read");
     if(!hist_files_ || hist_files_->IsZombie()) {
         log_err("%s does not exist", hist_file_name.Data());
-        exit(2);
     }
-    shape_files_ = TFile::Open(Form("%s/%s", _path, _shape_sys), "read");
-
-    setNormSysDicFromText(Form("%s/%s", _path, _norm_sys));
-
-    norm_hist = nullptr;
+    string shape_file_name(Form("%s/%s", Helper::getInputPath().c_str(), _shape_sys));
+    shape_files_ = TFile::Open(shape_file_name.c_str(), "read");
+    nom_hist = nullptr;
     use_mcc_ = false;
 }
 
 SampleHist::~SampleHist(){
-
+    if(hist_files_) hist_files_->Close();
+    if(shape_files_) shape_files_->Close();
+    if(nom_hist) delete nom_hist;
 }
 
 bool SampleHist::setChannel(const RooArgSet& _obs, const char* _ch_name, bool with_sys)
@@ -61,27 +60,23 @@ bool SampleHist::setChannel(const RooArgSet& _obs, const char* _ch_name, bool wi
 
     // get norminal histogram (normalized to 1)
     TString histName(Form("%s_%s", obsname.c_str(), category_name_.c_str()));
-    norm_hist =(TH1*) hist_files_->Get(histName.Data());
+    nom_hist =(TH1*) hist_files_->Get(histName.Data());
    
     // TString histName(Form("%s-Nominal-%s", obsname.c_str(), category_name_.c_str()));
-    // norm_hist =(TH1*) shape_files_->Get(histName.Data());
-    if (!Helper::IsGoodTH1(norm_hist)) {
+    // nom_hist =(TH1*) shape_files_->Get(histName.Data());
+    if (!Helper::IsGoodTH1(nom_hist)) {
         log_err("bad histogram %s", histName.Data());
         exit(2);
     }
+    nom_hist->SetDirectory(0);
     if(shape_files_){
         string raw_hist_name(Form("%s-Nominal-%s",obsname.c_str(), category_name_.c_str()));
         raw_hist = (TH1*) shape_files_->Get(raw_hist_name.c_str());
         if(!Helper::IsGoodTH1(raw_hist)){
             log_err("raw hist: %s is not good", raw_hist_name.c_str());
-            raw_hist = norm_hist;
+            raw_hist = nom_hist;
         }
-    } else { raw_hist = norm_hist; }
-    
-
-    // get expected events
-    getExpectedValue();
-    cout << "expected events: " << expected_events_ << endl;
+    } else { raw_hist = nom_hist; }
     
     if (with_sys) {
         // get shape sys dictionary
@@ -92,13 +87,14 @@ bool SampleHist::setChannel(const RooArgSet& _obs, const char* _ch_name, bool wi
 
 RooAbsPdf* SampleHist::makeHistPdf(TH1* hist, const char* base_name, bool is_norm)
 {
-    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", base_name), "datahist",  
+    RooDataHist *datahist = new RooDataHist(Form("%s_RooDataHist", base_name), "datahist",
             this->obs_list_, hist);
     string pdfname(Form("%s_%s", base_name, obsname.c_str()));
-    RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(), 
+    RooHistPdf *histpdf = new RooHistPdf(pdfname.c_str(), pdfname.c_str(),
             this->obs_list_, *datahist, 3);
     RooDataHist* newdatahist = nullptr;
-    if (use_adpt_bin_) { 
+    if (use_adpt_bin_) {
+        log_info("use adaptive binning");
         // create a dataHist with statistic error from un-smoothed histogram
         // to determine the binning
         // to calculate the statistic error
@@ -117,7 +113,7 @@ RooAbsPdf* SampleHist::makeHistPdf(TH1* hist, const char* base_name, bool is_nor
         newdatahist = BinningUtil::makeAsimov1D( *histpdf, *obs, 
                 *binning,
                 "adaptive", 
-                norm_hist // TODO: use un-smoothed histogram
+                nom_hist // TODO: use un-smoothed histogram
                 );
         delete datahist; // release old dataHist
     } else {
@@ -138,33 +134,8 @@ RooAbsPdf* SampleHist::makeHistPdf(TH1* hist, const char* base_name, bool is_nor
     }
 }
 
-void SampleHist::getExpectedValue(){
-    // TODO: need to be tested for 2-d
-    if(expected_events_  > 0) return;  
-    if (!norm_hist) {
-        return ;
-    }
-    RooRealVar* x_var = dynamic_cast<RooRealVar*>(obs_list_.at(0));
-    double xmax = x_var->getMax(), xmin = x_var->getMin();
-    int binl = norm_hist->FindFixBin(xmin);
-    int binh = norm_hist->FindFixBin(xmax);
-    cout << "binning: " << binl << " " << binh << endl;
-    if (obs_list_.getSize() == 1) {
-        expected_events_ = norm_hist->Integral(binl, binh);
-    } 
-    else if (obs_list_.getSize() == 2) {
-        RooRealVar* y_var = dynamic_cast<RooRealVar*>(obs_list_.at(1));
-        double ymax = y_var->getMax(), ymin = y_var->getMin();
-        int binyl = norm_hist->FindFixBin(xmin, ymin);
-        int binyh = norm_hist->FindFixBin(xmax, ymax);
-        expected_events_ = norm_hist->Integral(binyl, binyh);
-    } else {
-        cout << "3D is not supported.. " << endl;
-    }
-    cout << "SampleHist " << pdf_name_ << " expects " << expected_events_ << " in " << category_name_ << endl;
-}
-
-void SampleHist::getShapeSys(){
+void SampleHist::getShapeSys()
+{
     // call this function every time dealing with new category
     // return a dictionary for all shape nusiance parameter in specific category
     // to avoid visiting the files many times
@@ -231,19 +202,19 @@ bool SampleHist::addShapeSys(const TString& npName)
     try{
         shape_varies = &(this->shapes_dic.at(npName));
     } catch (const out_of_range& oor) {
-        cout << "ShapeSys:" << npName << " not implemnted for " << base_name_ << endl;
+        // log_info("%s not implemented for %s", npName.Data(), base_name_.Data());
         return false;
     }
-    if (!norm_hist) return false;
+    if (!nom_hist) return false;
 
-    TH1* histUp   = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_up",  norm_hist->GetName())));
-    TH1* histDown = dynamic_cast<TH1*>(norm_hist->Clone(Form("%s_down",norm_hist->GetName())));
+    TH1* histUp   = dynamic_cast<TH1*>(nom_hist->Clone(Form("%s_up",  nom_hist->GetName())));
+    TH1* histDown = dynamic_cast<TH1*>(nom_hist->Clone(Form("%s_down",nom_hist->GetName())));
     if (shape_varies->size() == 1) {
         // add symmetric error
         TH1* h1 = shape_varies->at(0);
-        for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
-            histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1+h1->GetBinContent(i+1)));
-            histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*(1-h1->GetBinContent(i+1)));
+        for (int i = 0; i < nom_hist->GetNbinsX(); i++) {
+            histUp->SetBinContent(i+1, nom_hist->GetBinContent(i+1)*(1+h1->GetBinContent(i+1)));
+            histDown->SetBinContent(i+1, nom_hist->GetBinContent(i+1)*(1-h1->GetBinContent(i+1)));
         }
     } else if(shape_varies->size() == 2) {
         // add asymmetric error
@@ -251,15 +222,15 @@ bool SampleHist::addShapeSys(const TString& npName)
         TH1* h2 = shape_varies->at(1);
         // h1->Scale(1./h1->Integral());
         // h2->Scale(1./h2->Integral());
-        for (int i = 0; i < norm_hist->GetNbinsX(); i++) {
-            float x_val = norm_hist->GetBinCenter(i+1);
+        for (int i = 0; i < nom_hist->GetNbinsX(); i++) {
+            float x_val = nom_hist->GetBinCenter(i+1);
             int ibin_1 = h1->FindBin(x_val);
             int ibin_2 = h2->FindBin(x_val);
             float up_var = cut_sys(h1->GetBinContent(ibin_1));
             float down_var = cut_sys(h2->GetBinContent(ibin_2));
 
-            histUp->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*up_var);
-            histDown->SetBinContent(i+1, norm_hist->GetBinContent(i+1)*down_var);
+            histUp->SetBinContent(i+1, nom_hist->GetBinContent(i+1)*up_var);
+            histDown->SetBinContent(i+1, nom_hist->GetBinContent(i+1)*down_var);
         }
     } else {
         cout <<"WARNNING: (SampleHist::addShapeSys) Check the size of shape varies: " 
@@ -274,18 +245,18 @@ bool SampleHist::addShapeSys(const TString& npName)
 
 
 RooAbsPdf* SampleHist::getPDF(){
-    norm_pdf = this->makeHistPdf(this->norm_hist, base_name_.Data(), true);
+    nom_pdf = this->makeHistPdf(this->nom_hist, base_name_.Data(), true);
     if (use_mcc_) 
     {
-        string pdfname(Form("%s_normConstraint", norm_pdf->GetName()));
+        string pdfname(Form("%s_normConstraint", nom_pdf->GetName()));
         mc_constraint = new RooMCHistConstraint(pdfname.c_str(), "constraint", 
-                *norm_pdf, RooMCHistConstraint::Poisson, thresh_);
+                *nom_pdf, RooMCHistConstraint::Poisson, thresh_);
     }
     if (paramNames.size() < 1) // no shape systematics
     {
-        return  norm_pdf;
+        return  nom_pdf;
     } else {
-        string pdfname(Form("%s_withSys", norm_pdf->GetName()));
+        string pdfname(Form("%s_withSys", nom_pdf->GetName()));
         return this->createRooStarMomentMorph(pdfname);
     }
 }
@@ -302,7 +273,7 @@ RooStarMomentMorph* SampleHist::createRooStarMomentMorph(const string& outputNam
     vector<int> nnuispoints;
     vector<double> nrefpoints;
 
-    for (int isys = 0; isys < (int)sysPdfs.size(); isys++) 
+    for (int isys = 0; isys < (int)sysPdfs.size(); isys++)
     {
         if (sysPdfs[isys].first==0 || sysPdfs[isys].second==0) {
             cout << "pdf for " << paramNames[isys] << " missing!" << endl;
@@ -320,7 +291,7 @@ RooStarMomentMorph* SampleHist::createRooStarMomentMorph(const string& outputNam
         RooRealVar* var = Helper::createNuisanceVar(paramNames.at(isys).c_str());
         parList.add(*var);
     }
-    pdfList.add(*(this->norm_pdf));
+    pdfList.add(*(this->nom_pdf));
 
     // make RooStarMomentMorph
     auto* tmpmorph = new RooStarMomentMorph (outputName.c_str(), outputName.c_str(),
@@ -332,7 +303,7 @@ RooStarMomentMorph* SampleHist::createRooStarMomentMorph(const string& outputNam
     if (use_mcc_) {
         // copied from WorkspaceToolBase, line 911
         tmpmorph->setUseBinByBinScaleFactors(true);
-        auto* tmppdf = dynamic_cast<RooExpandedHistPdf*>(this->norm_pdf);
+        auto* tmppdf = dynamic_cast<RooExpandedHistPdf*>(this->nom_pdf);
         if (tmppdf) {
             ((RooExpandedDataHist&)(tmppdf->dataHist())).applyScaleFactor(false);
         } 

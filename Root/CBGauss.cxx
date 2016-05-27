@@ -35,14 +35,10 @@ using namespace RooStats;
 using namespace HistFactory;
 
 CBGauss::CBGauss(const char* _name, 
-        const char* _nickname,
         const char* _input,  
         const char* _shape_sys,
-        const char* _norm_sys,
-        const char* _path,
         bool _doSys
-        ) : SampleBase(_name, _nickname)
-    , inputFilePath(_path)
+        ) : SampleBase(_name)
     , inputParameterFile(_input)
       , inputShapeSysFile(_shape_sys)
       , workspace(new RooWorkspace("CBGauss"))
@@ -52,9 +48,6 @@ CBGauss::CBGauss(const char* _name,
     , masses_(new vector<double>())
       , bases_(NULL)
 {
-
-    // Helper::readConfig(Form("%s/%s", _path, _input), '=', all_dic_);
-    setNormSysDicFromText(Form("%s/%s", _path, _norm_sys));
     shape_sys_names_ = new vector<string>();
 }
 
@@ -63,8 +56,6 @@ CBGauss::~CBGauss()
     if(mH) delete mH;
     //delete workspace;
     delete masses_;
-    for (int i(0); i< (int)norm_sys_.size(); ++i)
-        delete norm_sys_[i];
     for (int i(0); i< (int)shape_mean_sys_.size(); ++i)
         delete shape_mean_sys_[i];
     for (int i(0); i< (int)shape_sigma_sys_.size(); ++i)
@@ -76,10 +67,6 @@ CBGauss::~CBGauss()
 bool CBGauss::setChannel(const RooArgSet& _obs, const char* _ch_name, bool with_sys)
 {
     SampleBase::setChannel(_obs,_ch_name,with_sys);
-
-    std::cout<<"setting channel for norm_sys_"<<std::endl;
-    for (auto& s: norm_sys_)
-        s->SetChannel(category_name_.c_str());
 
     std::cout<<"setting channel for shape_mean_sys_"<<std::endl;
     for (auto& s: shape_mean_sys_)
@@ -290,90 +277,12 @@ RooAbsPdf* CBGauss::getPDF()
   return 0;      
 }
 
-RooAbsReal* CBGauss::getCoeff(){
-
-  // Adding POI
-  RooArgList normcoeff;
-  if (is_signal_) this->addMu(normcoeff);
-  if (is_bsm_){
-    RooRealVar* mu_bsm = new RooRealVar("mu_BSM", "mu BSM", 1.0, -3.0, 30.);
-    mu_bsm->setConstant(true);
-    normcoeff.add(*mu_bsm);
-  }
-  std::cout<<"1"<<std::endl;
-  normcoeff.Print();
-
-  //Polynomial acceptance function
-  std::vector<double> params;
-  Helper::readAcceptancePoly(params, "lumi","","lumi");
-
-  if (params.size()==1){
-    RooConstVar* lumi = new RooConstVar("nTot_ATLAS_Signal_lumi","nTot_ATLAS_Signal_lumi", params[0]);
-    normcoeff.add(*lumi);
-  }
-  else {
-    std::cout<<"ERROR! Could not read signal lumi from polyNorm.txt, probably it needs to be updated"<<std::endl;
-  }
-  std::cout<<"2"<<std::endl;
-  normcoeff.Print();
-
-  params.clear();
-  std::string acc_chan = category_name_.substr(0, category_name_.find("_13TeV"));   
-  Helper::readAcceptancePoly(params, nickname_.c_str(), acc_chan.c_str());
-
-  RooArgList polyCoeffs;
-  for (auto& x:params) polyCoeffs.add(RooFit::RooConst(x));
-  std::string accname = Form("n%s", base_name_.Data());
-  auto p = new RooPolyVar(accname.c_str(),accname.c_str(), *mH, polyCoeffs, 0);
-
-  normcoeff.add(*p);
-  std::cout<<"3"<<std::endl;
-  normcoeff.Print();
-
-  //Systematics
-  if (doSys){
-    std::cout<<"inside CBGauss::getCoeff ... building systematics now:"<<std::endl;
-    RooArgList* cp_fiv = new RooArgList();
-    //
-    //loop over mass points and make fiv at each
-    for (unsigned int m(0);m< masses_->size(); ++m){
-      auto fiv =  norm_sys_[m]->GetSys(Form("fiv_norm_%s_%d",base_name_.Data(), (int)masses_->at(m)));
-      if (fiv){
-        fiv->Print();
-        cp_fiv->add(*fiv);
-      }
-      else std::cout<<"failed to create fiv!"<<std::endl;
-    }
-    //
-    //build BSpline out of fiv
-    if (cp_fiv->getSize() > 0){
-      if (!bases_) BuildBases();
-      const char* bs_fiv_name = Form("bs_fiv_norm_%s", base_name_.Data());
-      auto bs_fiv = new RooStats::HistFactory::RooBSpline(bs_fiv_name, bs_fiv_name, *cp_fiv, *bases_, RooArgSet());
-      bs_fiv->Print();
-      normcoeff.add(*bs_fiv);
-    }
-    else 
-      std::cout<<"cp_fiv is empty! not adding Bspline of fiv"<<std::endl;
-  }
-
-  std::cout<<"4"<<std::endl;
-  normcoeff.Print();
-
-  TString prodName(Form("nTot%s", base_name_.Data()));
-  auto nominal =  new RooProduct(prodName.Data(),prodName.Data(),normcoeff);
-  cout<<"made coeff:"<<endl;
-  nominal->Print();
-  return nominal;
-}
-
-
 
 void CBGauss::loadTextInputFile()
 {
 
-    string param_file_name = inputFilePath + "/" + inputParameterFile+"_"+category_name_+".txt";
-    string shape_file_name = inputFilePath + "/" + inputShapeSysFile+"_"+category_name_+".txt";
+    string param_file_name = Helper::getInputPath() + "/" + inputParameterFile+"_"+category_name_+".txt";
+    string shape_file_name = Helper::getInputPath() + "/" + inputShapeSysFile+"_"+category_name_+".txt";
 
     //Quickie function to read a text input file
 
@@ -522,12 +431,10 @@ void CBGauss::BuildBases()
 }
 
 
-void CBGauss::AddMassPoint(float m, std::string normfile, std::string shapemeanfile, std::string shapesigmafile){
+void CBGauss::AddMassPoint(float m, std::string shapemeanfile, std::string shapesigmafile){
 
-    std::cout<<"CBGauss adding mass point "<<m<<" using norm file:"<<normfile<<" and shape mean file: "<<shapemeanfile<<" and shape sigma file: "<<shapesigmafile<<std::endl;
+    std::cout<<"CBGauss adding mass point "<<m<<" using  shape mean file: "<<shapemeanfile<<" and shape sigma file: "<<shapesigmafile<<std::endl;
     masses_->push_back(m);
-    auto s1 = new SysText(normfile.c_str());
-    norm_sys_.push_back(s1);
     auto s2 = new SysText(shapemeanfile.c_str());
     shape_mean_sys_.push_back(s2);
     auto s3 = new SysText(shapesigmafile.c_str());
@@ -570,12 +477,3 @@ RooAbsReal* CBGauss::getShapeSys(std::string name) {
     return NULL;
 }
 
-
-bool CBGauss:: addNormSys(const TString& npName)
-{
-    bool result = true;
-    for(const auto& nSysHandler : norm_sys_){
-        if(! nSysHandler->AddSys(npName)) result = false;
-    }
-    return result;
-}

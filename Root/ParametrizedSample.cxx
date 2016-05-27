@@ -13,9 +13,8 @@ using namespace std;
 #include "Hzzws/ParametrizedSample.h"
 
 ParametrizedSample::ParametrizedSample(const char* name,
-        const char* nickname, 
         const char* para_name, float low, float hi):
-    SampleBase(name, nickname),
+    SampleBase(name),
     para_name_(para_name)
 {
     signal_samples_ = new vector<SampleBase*>();
@@ -69,16 +68,6 @@ bool ParametrizedSample::addShapeSys(const TString& npName)
     return result;
 }
 
-bool ParametrizedSample:: addNormSys(const TString& npName)
-{
-    if(signal_samples_->size() < 1) return false;
-    bool result = true;
-    for(const auto& sample : *signal_samples_){
-        if(! sample->addNormSys(npName)) result = false;
-    }
-    return result;
-}
-
 RooAbsPdf* ParametrizedSample::getPDF()
 {
     if(!bases_) BuildBases();
@@ -91,49 +80,6 @@ RooAbsPdf* ParametrizedSample::getPDF()
     const char* category_pdf_name = Form("%s_Para", base_name_.Data());
     auto* one = new RooRealVar("one", "one", 1.0); 
     return new RooRealSumPdf(category_pdf_name, category_pdf_name, RooArgList(*bs_pdf), RooArgList(*one));
-}
-
-RooAbsReal* ParametrizedSample::getCoeff()
-{
-    if(!bases_) BuildBases();
-    // parametrize normalization and systematics
-    RooArgList* cp_norm = new RooArgList();
-    RooArgList* cp_fiv = new RooArgList();
-    for(const auto& sample : *signal_samples_){
-        RooAbsReal* coefficient = sample->getCoeff();
-        if(coefficient->InheritsFrom("RooProduct")){
-            RooProduct* norm_prod = dynamic_cast<RooProduct*>(coefficient);
-            norm_prod->Print();
-            const RooArgList& comp = norm_prod->components();
-            for(int i = 0; i < comp.getSize(); i++){
-                RooAbsArg* arg = comp.at(i);
-                // cout <<"arg: " <<  arg->GetName() << endl;
-                if(arg->InheritsFrom("RooStats::HistFactory::FlexibleInterpVar")){
-                    cp_fiv->add(*arg);
-                } else if (TString(arg->GetName()).Contains("nATLAS")){
-                    cp_norm->add(*arg);
-                } 
-            }
-        } else {
-            cp_norm->add(*coefficient);
-        }
-    }
-    // cout << "size of control point [normalize]: " << cp_norm->getSize() << endl;
-    // cout << "size of control point [norm_sys]: " << cp_fiv->getSize() << endl;
-    RooArgList prodSet;
-    const char* bs_norm_name = Form("bs_n%s", base_name_.Data());
-    auto* bs_norm = new RooStats::HistFactory::RooBSpline(bs_norm_name, bs_norm_name, *cp_norm, *bases_, RooArgSet()); 
-    prodSet.add(*bs_norm);
-    if(is_signal_) addMu(prodSet);
-
-    if(cp_fiv->getSize() > 0){
-        const char* bs_fiv_name = Form("bs_fiv_%s", base_name_.Data());
-        auto* bs_fiv = new RooStats::HistFactory::RooBSpline(bs_fiv_name, bs_fiv_name, *cp_fiv, *bases_, RooArgSet()); 
-        prodSet.add(*bs_fiv);
-    } 
-    const char* prod_name = Form("nTot%s_Para", base_name_.Data());
-    auto* normProd = new RooProduct(prod_name, prod_name, prodSet);
-    return normProd;
 }
 
 void ParametrizedSample::SetParaRange(const string& range_name, double low_value, double hi_value){

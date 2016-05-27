@@ -15,6 +15,7 @@
 #include "RooHistPdf.h"
 #include "RooRandom.h"
 #include "RooCurve.h"
+#include "RooAbsReal.h"
 #include "RooAbsPdf.h"
 #include "RooArgSet.h"
 #include "RooPlot.h"

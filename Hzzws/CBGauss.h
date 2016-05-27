@@ -36,23 +36,18 @@ class CBGauss : public SampleBase {
   public:
 
     CBGauss(const char* name, // used to construct PDF
-        const char* nickname,     // used to name the signal strength, if it's signal
         const char* input,        // input text file contains parameters
         const char* shape_sys,    // input text file contains shape variations
-        const char* norm_sys,     // text files contains normalization uncertainties
-        const char* _path,        // path of previous files
         bool _doSys
         );
     virtual ~CBGauss();
 
     virtual RooAbsPdf* getPDF();
-    virtual RooAbsReal* getCoeff();
 
     virtual bool setChannel(const RooArgSet& _obs, const char* _ch_name, bool with_sys);
-    virtual bool addNormSys(const TString& npName);
 
     virtual bool addShapeSys(const TString& npName);
-    void AddMassPoint(float m, std::string normfile, std::string shapemeanfile, std::string shapesigmafile);
+    void AddMassPoint(float m, std::string shapemeanfile, std::string shapesigmafile);
 
   private:
 
@@ -85,7 +80,6 @@ class CBGauss : public SampleBase {
 
     int order_;
     vector<double>* masses_;
-    vector<SysText*> norm_sys_;
     vector<SysText*> shape_mean_sys_;
     vector<SysText*> shape_sigma_sys_;
     RooStats::HistFactory::RooBSplineBases* bases_;

@@ -60,7 +60,7 @@ TGraph* getGraphFromFile(const char* filename, const char* treename,
 
   vector<double> massvalue;
   vector<double> nllvalue;
-
+  
   double _nll, _mass;
   physics ->SetBranchAddress(nllName,&_nll);
   physics ->SetBranchAddress(variableName,&_mass);

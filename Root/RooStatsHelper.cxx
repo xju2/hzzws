@@ -253,10 +253,6 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
 
     RooStats::ModelConfig* mcInWs = (RooStats::ModelConfig*) combined->obj(mcname);
     RooRealVar* mu = (RooRealVar*) combined->var(muName);
-    if(!mu){
-        cout <<"cannot find mu"<<endl;
-        return NULL;
-    }
     mu->setVal(muval);
 
     const RooArgSet& mc_globs = *mcInWs->GetGlobalObservables();
@@ -316,8 +312,18 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     combined->saveSnapshot(("conditionalNuis" +muStr.str()).c_str(), mc_nuis);
 
 
-    cout<<"Making asimov data, "<< muval <<endl;
     mu->setVal(muval);
+    cout<<"Making asimov data, "<< muval <<endl;
+
+    auto adata =  makeUnconditionalAsimov(combined, mcInWs, Form("asimovData_%s",muStr.str().c_str()));
+
+    combined->loadSnapshot("nominalGlobs");
+
+    return adata;
+}
+
+RooDataSet* RooStatsHelper::makeUnconditionalAsimov(RooWorkspace* combined, RooStats::ModelConfig* mcInWs, const char * dataname) {
+
     int iFrame=0;
 
     const char* weightName="weightVar";
@@ -326,15 +332,15 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     RooRealVar* weightVar = NULL;
     if (!(weightVar = combined->var(weightName)))
     {
-        combined->import(*(new RooRealVar(weightName, weightName, 1,0,100000000)));
-        weightVar = combined->var(weightName);
+      combined->import(*(new RooRealVar(weightName, weightName, 1,0,100000000)));
+      weightVar = combined->var(weightName);
     }
     obsAndWeight.add(*combined->var(weightName));
 
     RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mcInWs->GetPdf());
     if(!simPdf) {
-        log_err("cannot cast %s to RooSimultaneous", mcInWs->GetPdf()->GetName());
-        return NULL;
+      log_err("cannot cast %s to RooSimultaneous", mcInWs->GetPdf()->GetName());
+      return NULL;
     }
     map<string, RooDataSet*> asimovDataMap;
 
@@ -343,89 +349,97 @@ RooDataSet* RooStatsHelper::makeAsimovData(RooWorkspace* combined,
     RooCatType* tt = NULL;
     int nrIndices = 0;
     while((tt=(RooCatType*) iter->Next())) {
-        nrIndices++;
+      nrIndices++;
     }
     for (int i=0;i<nrIndices;i++){
-        channelCat->setIndex(i);
-        iFrame++;
-        // Get pdf associated with state from simpdf
-        RooAbsPdf* pdftmp = simPdf->getPdf(channelCat->getLabel()) ;
-        if(!pdftmp){
-            cout<<"ERRORs no pdf associated with "<< channelCat ->getLabel()<<endl;
-        }
-        // Generate observables defined by the pdf associated with this state
-        RooArgSet* obstmp = pdftmp->getObservables(*mcInWs->GetObservables()) ;
+      channelCat->setIndex(i);
+      iFrame++;
+      // Get pdf associated with state from simpdf
+      RooAbsPdf* pdftmp = simPdf->getPdf(channelCat->getLabel()) ;
+      if(!pdftmp){
+        cout<<"ERRORs no pdf associated with "<< channelCat ->getLabel()<<endl;
+      }
+      // Generate observables defined by the pdf associated with this state
+      RooArgSet* obstmp = pdftmp->getObservables(*mcInWs->GetObservables()) ;
 
-        RooDataSet* obsDataUnbinned = new RooDataSet(
-                Form("combAsimovData%d",iFrame),
-                Form("combAsimovData%d",iFrame),
-                RooArgSet(obsAndWeight,*channelCat),
-                RooFit::WeightVar(*weightVar)
-                );
+      RooDataSet* obsDataUnbinned = new RooDataSet(
+          Form("combAsimovData%d",iFrame),
+          Form("combAsimovData%d",iFrame),
+          RooArgSet(obsAndWeight,*channelCat),
+          RooFit::WeightVar(*weightVar)
+          );
+      double expectedEvents = pdftmp->expectedEvents(*obstmp);
+      double thisNorm = 0;
+      if (obstmp->getSize() == 0) { //counting
+        std::cout<<"building asimov for counting"<<std::endl;
+        obsDataUnbinned->add(*obstmp, expectedEvents);
+      }
+      else if (obstmp->getSize() == 1) { // 1D pdf
+        std::cout<<"building asimov for 1D"<<std::endl;
         RooRealVar* thisObs = ((RooRealVar*)obstmp->first());
-        double expectedEvents = pdftmp->expectedEvents(*obstmp);
-        double thisNorm = 0;
-        if (obstmp->getSize() < 2) {
-            for(int jj=0; jj<thisObs->numBins(); ++jj){
-                thisObs->setBin(jj);
+        for(int jj=0; jj<thisObs->numBins(); ++jj){
+          thisObs->setBin(jj);
 
-                thisNorm=pdftmp->getVal(obstmp)*thisObs->getBinWidth(jj);
-                double expNumber = thisNorm*expectedEvents;
-                if ( expNumber <= 0)
-                {
-                    expNumber = 1e-6;
-                }
-                if ( expNumber > pow(10.0, -9) && expNumber < pow(10.0, 9)) 
-                    obsDataUnbinned->add(*mcInWs->GetObservables(), expNumber);
+          thisNorm=pdftmp->getVal(obstmp)*thisObs->getBinWidth(jj);
+          double expNumber = thisNorm*expectedEvents;
+          if ( expNumber <= 0)
+          {
+            expNumber = 1e-6;
+          }
+          if ( expNumber > pow(10.0, -9) && expNumber < pow(10.0, 9)) 
+            obsDataUnbinned->add(*obstmp, expNumber);
+        }
+      }
+      else { // higher dimension (2 or more)
+        std::cout<<"building asimov for 2D or more"<<std::endl;
+        RooArgList obs(*obstmp);
+        RooRealVar* x = (RooRealVar*) obs.at(0);
+        RooRealVar* y = obs.getSize() > 1? (RooRealVar*) obs.at(1): 0;
+        RooRealVar* z = obs.getSize() > 2? (RooRealVar*) obs.at(2): 0;
+        RooCmdArg ay = ( y ? RooFit::YVar( *y, RooFit::Binning(y->getBinning().numBins())) : RooCmdArg::none() );
+        RooCmdArg az = ( z ? RooFit::YVar( *z, RooFit::Binning(z->getBinning().numBins())) : RooCmdArg::none() );
+        RooRealVar* m_KD = (RooRealVar*)combined ->var("KD");
+        std::auto_ptr<TH1> hist( pdftmp->createHistogram( "htemp", *x, RooFit::Binning(x->getBinning().numBins()), ay, az, RooFit::ConditionalObservables(RooArgSet(*m_KD))) );
+        hist ->Scale(expectedEvents/ hist->Integral());
+        if(obs.getSize() == 2){
+          TH2& h2 = dynamic_cast<TH2&>(*hist);
+          for (int ix = 1, nx = h2.GetNbinsX(); ix <= nx; ++ix){
+            for (int iy = 1, ny = h2.GetNbinsY(); iy <= ny; ++iy){
+              x->setVal( h2.GetXaxis()->GetBinCenter( ix ) );
+              y->setVal( h2.GetYaxis()->GetBinCenter( iy ) );
+              obsDataUnbinned ->add( *obstmp, h2.GetBinContent( ix, iy ) );
             }
+          }
         }
-        else { // higher dimension
-            RooArgList obs(*obstmp);
-            RooRealVar* x = (RooRealVar*) obs.at(0);
-            RooRealVar* y = obs.getSize() > 1? (RooRealVar*) obs.at(1): 0;
-            RooRealVar* z = obs.getSize() > 2? (RooRealVar*) obs.at(2): 0;
-            RooCmdArg ay = ( y ? RooFit::YVar( *y, RooFit::Binning(y->getBinning().numBins())) : RooCmdArg::none() );
-            RooCmdArg az = ( z ? RooFit::YVar( *z, RooFit::Binning(z->getBinning().numBins())) : RooCmdArg::none() );
-            RooRealVar* m_KD = (RooRealVar*)combined ->var("KD");
-            std::auto_ptr<TH1> hist( pdftmp->createHistogram( "htemp", *x, RooFit::Binning(x->getBinning().numBins()), ay, az, RooFit::ConditionalObservables(RooArgSet(*m_KD))) );
-            hist ->Scale(expectedEvents/ hist->Integral());
-            if(obs.getSize() == 2){
-                TH2& h2 = dynamic_cast<TH2&>(*hist);
-                for (int ix = 1, nx = h2.GetNbinsX(); ix <= nx; ++ix){
-                    for (int iy = 1, ny = h2.GetNbinsY(); iy <= ny; ++iy){
-                        x->setVal( h2.GetXaxis()->GetBinCenter( ix ) );
-                        y->setVal( h2.GetYaxis()->GetBinCenter( iy ) );
-                        obsDataUnbinned ->add( *mcInWs->GetObservables(), h2.GetBinContent( ix, iy ) );
-                    }
-                }
-            }
-        }
-        obsDataUnbinned->Print("v");
+      }
 
-        if(obsDataUnbinned->sumEntries()!=obsDataUnbinned->sumEntries()){
-            cout << "sum entries is nan"<<endl;
-            exit(1);
-        }
+      if(obsDataUnbinned->sumEntries()!=obsDataUnbinned->sumEntries()){
+        cout << "sum entries is nan"<<endl;
+        exit(1);
+      }
 
-        asimovDataMap[string(channelCat->getLabel())] = obsDataUnbinned;//tempData;
+      std::cout<<"in category "<<channelCat->getLabel()<<" using asimov dataset:"<<std::endl;
+      obsDataUnbinned->Print();
+
+      asimovDataMap[string(channelCat->getLabel())] = obsDataUnbinned;//tempData;
     }
 
     RooDataSet* asimovData = new RooDataSet(
-            ("asimovData_"+muStr.str()).c_str(),
-            ("asimovData_"+muStr.str()).c_str(),
-            RooArgSet(obsAndWeight,*channelCat),
-            RooFit::Index(*channelCat),
-            RooFit::Import(asimovDataMap),
-            RooFit::WeightVar(*weightVar)
-            );
+        dataname,
+        dataname,
+        RooArgSet(obsAndWeight,*channelCat),
+        RooFit::Index(*channelCat),
+        RooFit::Import(asimovDataMap),
+        RooFit::WeightVar(*weightVar)
+        );
     combined->import(*asimovData);
     cout<<"AsimovData is created"<<endl;
-    asimovData ->Print("v");
-    cout<< asimovData ->sumEntries()<<endl;
+    //asimovData ->Print("v");
+    //cout<< asimovData ->sumEntries()<<endl;
 
-    combined->loadSnapshot("nominalGlobs");
     return asimovData;
 }
+
 
 double RooStatsHelper::getRoughSig(double s, double b)
 {
@@ -600,15 +614,18 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
         log_err("POI: %s does not exist", poi_name.c_str());
         return false;
     }
-    // RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mc_config->GetPdf());
+    RooSimultaneous* simPdf = dynamic_cast<RooSimultaneous*>(mc_config->GetPdf());
 
+    RooRealVar* m4l = (RooRealVar*) ws->var("m4l");
+    m4l->setRange("signal", 118, 129);
     bool is_fixed_poi = poi->isConstant();
     poi->setConstant(false);
 
-    double val_nll, val_poi, val_status;
+    double val_nll, val_poi, val_status, obs_sig;
     tree->Branch("NLL", &val_nll, "NLL/D");
     tree->Branch("Status", &val_status, "NLL/D");
     tree->Branch(poi_name.c_str(), &val_poi, Form("%s/D",poi_name.c_str()));
+    tree->Branch("obs_sig", &obs_sig, "obs_sig/D");
 
     TStopwatch timer;
     timer.Start();
@@ -622,6 +639,8 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
     val_nll = nll ->getVal();
     val_poi = poi->getVal();
     val_status = status;
+    bool do_subrange = false;
+    obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
     tree->Fill();
     double step = (hi-low)/total;
     for(int i = 0; i < total; i++){
@@ -632,6 +651,7 @@ bool RooStatsHelper::ScanPOI(RooWorkspace* ws,
         val_nll = nll ->getVal();
         val_poi = poi->getVal();
         val_status = status;
+        obs_sig = GetObsNevtsOfSignal(simPdf, poi, mc_config->GetObservables(), do_subrange);
         tree->Fill();
     }
     if(!is_fixed_poi) poi->setConstant(false);

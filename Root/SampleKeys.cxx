@@ -11,20 +11,18 @@
 #include <fstream>
 #include <stdexcept>
 
-SampleKeys::SampleKeys(const char* name, const char* nickname,
+SampleKeys::SampleKeys(const char* name,
         double mH, double mH_low, double mH_hi, 
         const char* minitree_dir, 
-        const char* shape_sys, const char* norm_sys,
-        const char* path) : 
-    SampleBase(name, nickname),
+        const char* shape_sys) :
+    SampleBase(name),
     mh_low_(mH_low),
     mh_hi_(mH_hi),
     minitree_dir_(minitree_dir)
 {
     mass_ = mH;
     is_himass_ = mH > 140;
-    shape_sys_handler_ = new SysText(Form("%s/%s", path, shape_sys));
-    setNormSysDicFromText(Form("%s/%s", path, norm_sys));
+    shape_sys_handler_ = new SysText(Form("%s/%s", Helper::getInputPath().c_str(), shape_sys));
     init();
 }
 

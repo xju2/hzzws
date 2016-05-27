@@ -39,6 +39,7 @@ class Category {
   // bool is_2D ; // TODO
   RooArgSet obs ;
   set<TString> nps_set;
+  vector<SampleBase*> sample_container_; // used to clean up samples
 
   RooArgList pdfList;
   RooArgList coefList;

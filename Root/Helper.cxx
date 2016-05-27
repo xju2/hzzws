@@ -5,6 +5,7 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
+#include "TSystem.h"
 #include <TString.h>
 #include <TMath.h>
 #include "RooStats/HistFactory/RooBSplineBases.h"
@@ -19,7 +20,7 @@ bool readConfig(const char* filename, char delim,
     cout << "reading: " << filename << endl;
     ifstream file(filename, ifstream::in);
     if(file.fail() || file.bad()){
-        cout <<"file: "<< filename << " is bad." << endl; 
+        cout <<"file: "<< filename << " is bad." << endl;
         return false;
     }
     string line;
@@ -74,6 +75,63 @@ void tokenizeString(const char* str, char delim, vector<string>& tokens)
     string tmp_str(str);
     tokenizeString(tmp_str, delim, tokens);
 }
+
+void tokenizeString(const char* str, char delim, vector<TString>& tokens){
+  string tmp_str(str);
+  strvec tokens2;
+  tokenizeString(tmp_str, delim, tokens2);
+  for (auto & s: tokens2) tokens.push_back(s.c_str());
+}
+
+
+//this function produces a vector list of files, and (optionally) maps them by wildcard
+//
+tstrvec fileList(const char* pattern, std::map<float, TString>* map){
+  tstrvec files;
+  TString pipe = gSystem->GetFromPipe(Form("ls -1 %s",pattern));
+  pipe.ReplaceAll(" ",""); //remove empty space
+  tokenizeString(pipe.Data(),'\n',files);
+  for (auto& s : files) s = gSystem->GetFromPipe(Form("readlink -f %s",s.Data()));
+
+  //attempt to map by floats in the files
+  if (map){
+    //check if the string contains more than one wildcard (if so, bail out!)
+    unsigned int nwc=0;
+    std::string pat(pattern);
+    for (auto& c: pat) if (c=='*') nwc++;
+    if (nwc!=1){
+      log_err("trying to create map of file list by wildcard, but have n!=1 numbers of wildcards in %s",pattern);
+      return files;
+    }
+
+    //identify the string before/after the wildcard
+    std::string beforewild = pat.substr(0,pat.find('*'));
+    std::string afterwild = pat.substr(pat.find('*')+1);
+
+    for (auto& s : files) {
+      std::string s2 = s.Data();
+      size_t strt = s2.find(beforewild)+beforewild.size();
+      size_t nd = s2.find(afterwild);
+      TString val = s2.substr(strt, nd-strt);
+      if (!val.IsFloat())
+        log_err("trying to create map of file list by wildcard, but value hidden by * is  not a float! I found: %s",val.Data());
+        
+      (*map)[val.Atof()] = s;
+    }
+
+    std::cout<<"produced map from file list:"<<std::endl;
+    for (auto& m:*map)
+      std::cout<<m.first<<" : "<<m.second<<std::endl;
+  }
+  else {
+    std::cout<<"produced vector from file list:"<<std::endl;
+    for (auto& f: files)
+      std::cout<<f<<std::endl;
+  }
+     
+  return files;
+}
+
 
 void readAcceptancePoly(std::vector<double>& params, const char* prod, const char* chan, const char* sys) { 
 
@@ -240,13 +298,23 @@ void printStopwatch(TStopwatch& timer)
   cpu_h = (int) floor(kestCpuTime/3600.) ;
   cpu_m = (int) floor((kestCpuTime - real_h * 3600)/60.);
   cpu_s = kestCpuTime - real_h*3600 - real_m*60;
-  
+
   printf("RealTime=%dH%dM%ds, CPU=%dH%dM%ds\n",real_h,real_m,real_s,cpu_h,cpu_m,cpu_s);
 }
 
 const std::string& getInputPath(std::string i){
   static const std::string path(i);
   return path;
+}
+
+
+void getListOfNames(const string& cut, strvec& name_list) {
+    TString cutStr(cut);
+    strvec operation_list {"=", ">", "<", "&", "|", "!", "(", ")" };
+    for(auto op : operation_list) {
+        cutStr.ReplaceAll(op, ",");
+    }
+    tokenizeString(cutStr.Data(), ',', name_list);
 }
 
 

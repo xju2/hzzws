@@ -11,6 +11,7 @@
 #include <exception>
 
 #include "RooRealVar.h"
+#include "TVectorD.h"
 
 #include "Hzzws/Helper.h"
 
@@ -38,14 +39,13 @@ void SmoothMan::process() {
 
     }
 
-
     vector<string> signals;
     Helper::tokenizeString(m_dic["main"]["signals"], ',', signals);
     vector<string> backgrounds;
     Helper::tokenizeString(m_dic["main"]["backgrounds"], ',', backgrounds);
 
     vector<string> allsamples;
-    for (auto &s : signals) {allsamples.push_back(s); cout << s <<endl;}
+    for (auto &s : signals) {allsamples.push_back(s);}
     for (auto &b : backgrounds) allsamples.push_back(b);
 
     cout << "Smoothing samples." << endl;
@@ -69,9 +69,11 @@ void SmoothMan::process() {
             cout <<"provide rho please!"<< endl;
             continue;
         }
-        float rho = atof(props[1].c_str());
 
-        string inf = filedir + "/" + props[0];
+       TVectorD rho(props.size()-1);
+       for(int i=1; i<(int)props.size();i++) {rho(i-1) = atof(props[i].c_str());} 
+
+       string inf = filedir + "/" + props[0];
 
         if (find(signals.begin(), signals.end(), sample) != signals.end()) {
             ifstream f(inf.c_str(), ifstream::in);
@@ -81,11 +83,10 @@ void SmoothMan::process() {
                 Helper::tokenizeString(l, ' ', p);
                 cout << "File: " << p[0] << endl;
 
-                string outname_mass = outdir+"/"+outname + "_" + p[1]+".root";
+                string outname_mass = outdir+"/"+outname+".root";
                 Smoother *sm = new Smoother(outname_mass, rho);
 
                 processSmoother(sm, p[0]);
-
                 delete sm;
             }
             f.close();
@@ -105,7 +106,7 @@ void SmoothMan::processSmoother(Smoother *sm, const string& infile_name)
 {
     string oname, treename;
     RooArgSet treeobs;
-    if (m_dic["main"].count("treename") && m_dic["main"].count("branch") && m_dic["main"].count("observables")) 
+    if (m_dic["main"].count("treename") && m_dic["main"].count("observables")) 
     {
         getObs("main", oname, treename, treeobs);
     }
@@ -120,8 +121,8 @@ void SmoothMan::processSmoother(Smoother *sm, const string& infile_name)
         cout << "Category: " << c << endl;
 
         string cut = m_dic[c]["cut"];
-
-        if (m_dic[c].count("treename") && m_dic[c].count("branch") && m_dic[c].count("observables")) {
+        
+        if ((m_dic[c].count("treename") && m_dic[c].count("observables")) || (m_dic["main"].count("treename") && m_dic[c].count("observables"))) {
             string onametemp, treenametemp;
             RooArgSet treeobstemp;
             getObs(c, onametemp, treenametemp, treeobstemp);
@@ -133,38 +134,46 @@ void SmoothMan::processSmoother(Smoother *sm, const string& infile_name)
     }
 }
 
+void SmoothMan::readObservable(const string& str, vector<string>& obs_str, string& branch_name)
+{
+    string tmp_str(str);
+    Helper::tokenizeString(tmp_str, ',', obs_str);
+    if(obs_str.at(0).find(":") != string::npos){
+      vector<string> tmp_vec;
+      Helper::tokenizeString(obs_str.at(0), ':', tmp_vec);
+      branch_name = tmp_vec.at(0); 
+      obs_str.at(0) = tmp_vec.at(1);
+      }
+    else{ // uses leftmost part of branch name: varName_aaaa_bbbb
+      branch_name = obs_str.at(0);
+      vector<string> tmp;
+      Helper::tokenizeString(obs_str.at(0), '_', tmp);
+      obs_str.at(0) = tmp.at(0);
+      } 
+} 
+
 void SmoothMan::getObs(string cat, string &oname, string &treename, RooArgSet &treeobs) 
 {
-    treename = m_dic[cat]["treename"];
+    if(m_dic[cat].count("treename"))  treename = m_dic[cat]["treename"];
+    else  treename = m_dic["main"]["treename"];
 
-    vector<string> branches;  
-    Helper::tokenizeString(m_dic[cat]["branch"], ',', branches);
-    vector<string> obs;
-    Helper::tokenizeString(m_dic[cat]["observables"], ',', obs);
-    if (branches.size() % 4 != 0) {
-        cout << "Wrong number of parameters for observable, skipping." << endl;
-        return;
-    }
-    if (branches.size() / 4 != obs.size()) {
-        cout << "Mismatch between branches and observables, skipping." << endl;
-        return;
-    }
-    
+    vector<string> branch;  
+    Helper::tokenizeString(m_dic[cat]["observables"], ';', branch);
 
-    for (int i = 0; i < (int) branches.size(); i=i+4) {
-        string obsname = branches[i];
-        int obsbins = atoi(branches[i + 1].c_str());
-        float obslow = atof(branches[i + 2].c_str());
-        float obshigh = atof(branches[i + 3].c_str());
-        RooRealVar *v = new RooRealVar(obsname.c_str(), obsname.c_str(), obslow, obshigh);
-        v->setBins(obsbins);
+    for (int i=0; i<(int)branch.size(); ++i){
+        vector<string> tmp_obs;
+        string tmp_branch;
+        readObservable(branch[i], tmp_obs, tmp_branch);
+
+        if (tmp_obs.size() != 4) {
+            cout << "Wrong number of parameters for observable, skipping." << endl;
+            return;
+        }
+
+        RooRealVar *v = new RooRealVar(tmp_branch.c_str(), tmp_branch.c_str(), atof(tmp_obs.at(2).c_str()), atof(tmp_obs.at(3).c_str()));
+        v->setBins( atoi(tmp_obs.at(1).c_str()) ); 
         treeobs.add(*v);
-        if(i==0)
-        oname += obs[i] + "_";
-        else
-        oname += obs[i-4+1] + "_";
-    
+        oname += tmp_obs.at(0) + "_";
     }
-
 }
 
